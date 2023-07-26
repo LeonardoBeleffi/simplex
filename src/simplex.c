@@ -18,18 +18,15 @@ typedef struct {
         number_of_slack_variables, number_of_artificial_variables;
 } tableau_format;
 
+double simplex(tableau_format* const tableau);
+void simplex_first_phase(tableau_format* const tableau);
+double simplex_second_phase(tableau_format* const tableau);
+double simplex_loop(tableau_format* const tableau);
+void pivot_on_all_base_variables(tableau_format* const tableau);
+int does_not_need_first_phase(tableau_format* const tableau);
 int createNewTableauFromFile(const char* file_name,
                              tableau_format* const tableau);
-
 int createNewTableauFromInput(tableau_format* const tableau);
-
-double simplex(tableau_format* const tableau);
-
-void simplex_first_phase(tableau_format* const tableau);
-
-double simplex_second_phase(tableau_format* const tableau);
-
-int does_not_need_first_phase(tableau_format* const tableau);
 
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 int main(int argc, char *argv[]) {
@@ -50,15 +47,28 @@ double simplex(tableau_format* const tableau) {
 void simplex_first_phase(tableau_format* const tableau) {
     if (does_not_need_first_phase(tableau)) return;
     double backup_objective_function[TOTAL_VARIABLES];
-    for (int j = 0; j <= TOTAL_VARIABLES, j++) {
+    for (int j = 0; j <= TOTAL_VARIABLES; j++) {
          backup_objective_function[j] = tableau->table[0][j];
          tableau->table[0][j] =
                 tableau->type_of_variable[j] == ARTIFICIAL ? -1 : 0;
     }
+    pivot_on_all_base_variables(tableau);
+    simplex_loop(tableau);
+    // TODO
+    for (int j = 0; j <= TOTAL_VARIABLES; j++)
+         tableau->table[0][j] = backup_objective_function[j];
 }
 
 double simplex_second_phase(tableau_format* const tableau) {
     return 0.0;
+}
+
+double simplex_loop(tableau_format* const tableau) {
+
+}
+
+void pivot_on_all_base_variables(tableau_format* const tableau) {
+
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
