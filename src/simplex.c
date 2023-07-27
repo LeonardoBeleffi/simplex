@@ -4,8 +4,8 @@
 #define MAX 10000
 
 #define TOTAL_VARIABLES (tableau->number_of_original_variables +\
-                                    tableau->number_of_slack_variables +\
-                                    tableau->number_of_artificial_variables)
+    tableau->number_of_slack_variables +\
+    tableau->number_of_artificial_variables)
 
 typedef enum {
     NO_SOLUTION = 0,
@@ -21,11 +21,11 @@ typedef enum {
 } variable_type;
 
 typedef struct {
-    double** table;
+    double(* table)[MAX];
     variable_type* type_of_variable;
     int* is_variable_in_base;
     int number_of_original_variables, number_of_costraints,
-        number_of_slack_variables, number_of_artificial_variables;
+    number_of_slack_variables, number_of_artificial_variables;
     int minimize;
 } tableau_format;
 
@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
         }
     };
 #endif
+    printf("PRIVA\n");
     free_tableau(&tableau);
     return 0;
 }
@@ -83,16 +84,16 @@ result_type simplex_first_phase(tableau_format* const tableau) {
 
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-         backup_objective_function[j] = tableau->table[0][j];
-         tableau->table[0][j] =
-                tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
+        backup_objective_function[j] = tableau->table[0][j];
+        tableau->table[0][j] =
+            tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
     pivot_on_all_base_variables(tableau);
     if (simplex_loop(tableau) > 0)  return NO_SOLUTION;
 
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
-         tableau->table[0][j] = backup_objective_function[j];
+        tableau->table[0][j] = backup_objective_function[j];
     // TODO
     return NO_SOLUTION;
 }
@@ -111,7 +112,7 @@ void pivot_on_all_base_variables(tableau_format* const tableau) {
 
 int does_not_need_first_phase(tableau_format* const tableau) {
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
-         if (tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)  return 0;
+        if (tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)  return 0;
     return 1;
 }
 
@@ -122,9 +123,9 @@ int createNewTableauFromFile(const char* file_name,
 
 void createNewTableauFromInput(tableau_format* const tableau) {
     int lessEqualCostraints = 0, equalCostraints = 0,
-        greaterEqualCostraints = 0, wantToReinsert, i;
+    greaterEqualCostraints = 0, wantToReinsert, i;
 
-    tableau->table = (double**) malloc(MAX*MAX*sizeof(double));
+    tableau->table = malloc(MAX * sizeof(*(tableau->table)));
     do {
         i = 0;
         do {
@@ -144,7 +145,7 @@ void createNewTableauFromInput(tableau_format* const tableau) {
         tableau->table[0][0] = 0;
         for (int j = 1; j <= tableau->number_of_original_variables; j++) {
             printf("Enter the coefficient of " \
-                        "variable number %d: ", j);
+                   "variable number %d: ", j);
             scanf("%lf", &(tableau->table[i][j]));
         }
         i++;
@@ -214,22 +215,28 @@ void createNewTableauFromInput(tableau_format* const tableau) {
         }
         printf("\n");
 
-        printf("\nInsert 1 to reinsert, 0 to proceed with the inserted data: ");
-        scanf("%d", &wantToReinsert);
+        do {
+            printf("\nInsert 1 to reinsert, 0 to proceed with the inserted data: ");
+            scanf("%d", &wantToReinsert);
+        } while (wantToReinsert && wantToReinsert != 1);
     } while (wantToReinsert);
     // initialization -> all disequations to <=, and add slack variablesNumber
-    for (int j = 0; j <= tabvariablesNumber; j++) {
-        tableau->table[0][j] *= -1 * cost;
-        baseVariables[i] = 0;
+    for (int j = 0; j <= tableau->number_of_original_variables; j++) {
+        tableau->table[0][j] *= -1 * tableau->minimize;
+        tableau->is_variable_in_base[i] = 0;
+        //baseVariables[i] = 0;
     }
-    tableau->variable_type[0] = NO_VARIABLE;
-    for (int i = 1; i <= costraintsNumber; i++) {
+    tableau->type_of_variable[0] = NO_VARIABLE;
+    int needsArtificialVariables[tableau->number_of_costraints];
+    for (int i = 1; i <= tableau->number_of_costraints; i++) {
         needsArtificialVariables[i] = 0;
-        baseVariables[i] = 0;
+        //tableau->is_variable_in_base[i] = NO_VARIABLE;
+        //baseVariables[i] = 0;
         if (i <= lessEqualCostraints) {
-            slackVariables++;
-            for (int y = 0; y <= costraintsNumber; y++) {
-                tableau[y][variablesNumber + slackVariables] = i == y ? 1 : 0;
+            tableau->number_of_slack_variables++;
+            for (int y = 0; y <= tableau->number_of_costraints; y++) {
+                tableau->table[y][tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = i == y ? 1 : 0;
             }
             if (tableau->table[i][0] < 0) {
                 // addSlackVariable(const int i)
@@ -237,9 +244,11 @@ void createNewTableauFromInput(tableau_format* const tableau) {
                     tableau->table[i][j] *= -1;
                 }
                 needsArtificialVariables[i] = 1;
-                baseVariables[variablesNumber + slackVariables] = 0;
+                tableau->is_variable_in_base[tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = 0;
             } else {
-                baseVariables[variablesNumber + slackVariables] = i;
+                tableau->is_variable_in_base[tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = i;
             }
         } else if (i <= lessEqualCostraints + equalCostraints) {
             needsArtificialVariables[i] = 1;
@@ -249,15 +258,18 @@ void createNewTableauFromInput(tableau_format* const tableau) {
                 }
             }
         } else {
-            slackVariables++;
-            for (int y = 0; y <= costraintsNumber; y++) {
-                tableau[y][variablesNumber + slackVariables] = i == y ? -1 : 0;
+            tableau->number_of_slack_variables++;
+            for (int y = 0; y <= tableau->number_of_costraints; y++) {
+                tableau->table[y][tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = i == y ? -1 : 0;
             }
             if (tableau->table[i][0] > 0) {
                 needsArtificialVariables[i] = 1;
-                baseVariables[variablesNumber + slackVariables] = 0;
+                tableau->is_variable_in_base[tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = 0;
             } else {
-                baseVariables[variablesNumber + slackVariables] = i;
+                tableau->is_variable_in_base[tableau->number_of_original_variables +
+                    tableau->number_of_slack_variables] = i;
                 for (int j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -274,6 +286,6 @@ void print_variables(tableau_format* const tableau) {
     }
 }
 
-void print_variables(tableau_format* const tableau) {
+void free_tableau(tableau_format* const tableau) {
     free(tableau->table);
 }
