@@ -46,8 +46,8 @@ result_type simplex_first_phase(tableau_format* const tableau);
 result_type simplex_second_phase(tableau_format* const tableau, double* const result);
 result_type simplex_loop(tableau_format* const tableau, double* const result);
 void pivot_on_all_base_variables(tableau_format* const tableau);
-void has_artificial_variable_in_base(tableau_format* const tableau);
-void pivot_on_all_artificial_variables(tableau_format* const tableau);
+size_t has_artificial_variable_in_base(tableau_format* const tableau);
+void exclude_all_artificial_variables_from_base(tableau_format* const tableau);
 void pivot(tableau_format* const tableau, const size_t i, const size_t j);
 int does_not_need_first_phase(tableau_format* const tableau);
 void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables);
@@ -106,13 +106,15 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     pivot_on_all_base_variables(tableau);
 
     double result;
+    PRINT_ALL_TABLEAU
     simplex_loop(tableau, &result);
     if (result > 0) return NO_SOLUTION;
-    if (has_artificial_variable_in_base(tableau)) pivot_on_all_artificial_variables(tableau);
+    exclude_all_artificial_variables_from_base(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
         tableau->table[0][j] = backup_objective_function[j];
     // TODO
+    PRINT_ALL_TABLEAU
     return NORMAL_SOLUTION;
 }
 
@@ -133,18 +135,54 @@ void pivot_on_all_base_variables(tableau_format* const tableau) {
     }
 }
 
-void has_artificial_variable_in_base(tableau_format* const tableau) {
-
+size_t has_artificial_variable_in_base(tableau_format* const tableau) {
+    for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
+        if (tableau->is_variable_in_base[j] &&
+            tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)
+            return j;
+    }
+    return 0;
 }
 
-void pivot_on_all_artificial_variables(tableau_format* const tableau) {
+void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
+    size_t j;
+    int non_artificial_variables = TOTAL_VARIABLES - tableau->number_of_artificial_variables;
 
+    while ((j = has_artificial_variable_in_base(tableau))) {
+        int found_pivotable_variable = 0;
+        size_t i = tableau->is_variable_in_base[j];
+        found_pivotable_variable = 0;
+        for (size_t current_j = 1; current_j <= non_artificial_variables; current_j++) {
+            if (tableau->table[i][current_j]) {
+                found_pivotable_variable = 1;
+                pivot(tableau, i, current_j);
+            }
+        }
+        if (!found_pivotable_variable) {
+            // remove row and column
+            for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+                tableau->table[i][current_j] = 0;
+            }
+            for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
+                tableau->table[current_i][j] = 0;
+            }
+            tableau->is_variable_in_base[j] = 0;
+        }
+    }
+    tableau->number_of_artificial_variables = 0;
 }
 
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     double coefficient;
     printf("(%d, %zu) -> %lf\n", tableau->is_variable_in_base[j], j, tableau->table[i][j]);
     assert(tableau->table[i][j]);
+    for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+        if (tableau->is_variable_in_base[current_j] == i){
+            tableau->is_variable_in_base[current_j] = 0;
+            tableau->is_variable_in_base[j] = i;
+            break;
+        }
+    }
     if (tableau->table[i][j] != 1) {
         // TODO (even pivot)
         coefficient = 1.0 / tableau->table[i][j];
