@@ -1,11 +1,23 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #define MAX 10000
 
 #define TOTAL_VARIABLES (tableau->number_of_original_variables +\
     tableau->number_of_slack_variables +\
     tableau->number_of_artificial_variables)
+
+#define PRINT_ALL_TABLEAU(tableau) do {\
+        printf("\n");\
+        for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
+            for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
+                printf("%lf %s", tableau->table[i][j], !j ? "| " : "");\
+            }\
+            printf("\n%s", !i ? "-----------------------------------\n" : "");\
+        }\
+        printf("\n");\
+    } while(0);
 
 typedef enum {
     NO_SOLUTION = 0,
@@ -34,7 +46,9 @@ result_type simplex_first_phase(tableau_format* const tableau);
 result_type simplex_second_phase(tableau_format* const tableau, double* const result);
 double simplex_loop(tableau_format* const tableau);
 void pivot_on_all_base_variables(tableau_format* const tableau);
+void pivot(tableau_format* const tableau, const size_t i, const size_t j);
 int does_not_need_first_phase(tableau_format* const tableau);
+void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables);
 void print_variables(tableau_format* const tableau);
 void free_tableau(tableau_format* const tableau);
 int createNewTableauFromFile(const char* file_name,
@@ -47,7 +61,7 @@ int main(int argc, char *argv[]) {
     double result = 0;
     //createNewTableauFromFile("input.dat", &tableau);
     createNewTableauFromInput(&tableau);
-#if 0
+#if 1
     switch (simplex(&tableau, &result)) {
         case NO_SOLUTION: {
             printf("There is no solution for this problem!\n");
@@ -78,6 +92,7 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 
 result_type simplex_first_phase(tableau_format* const tableau) {
     printf("PROVA\n");
+    PRINT_ALL_TABLEAU(tableau)
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
     double backup_objective_function[TOTAL_VARIABLES];
 
@@ -88,6 +103,8 @@ result_type simplex_first_phase(tableau_format* const tableau) {
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
     pivot_on_all_base_variables(tableau);
+    printf("OIOIOI\n");
+    getc(stdin);
     if (simplex_loop(tableau) > 0)  return NO_SOLUTION;
 
     // TODO maybe function
@@ -106,13 +123,57 @@ double simplex_loop(tableau_format* const tableau) {
 }
 
 void pivot_on_all_base_variables(tableau_format* const tableau) {
+    for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
+        if (tableau->is_variable_in_base[j]) {
+            printf("pivot on all base\n");
+            pivot(tableau, tableau->is_variable_in_base[j], j);
+        }
+    }
+}
 
+void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
+    double coefficient;
+    assert(!tableau->table[i][j]);
+    if (tableau->table[i][j] != 1) {
+        coefficient = 1 / tableau->table[i][j];
+        for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++) {
+            tableau->table[i][current_j] *= coefficient;
+        }
+    }
+    PRINT_ALL_TABLEAU(tableau)
+    for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
+        if (tableau->table[current_i][j] != 0) {
+            coefficient = -tableau->table[current_i][j];
+            for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+                tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
+            }
+        }
+    }
+    PRINT_ALL_TABLEAU(tableau)
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
         if (tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)  return 0;
     return 1;
+}
+
+void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables) {
+#if 0
+    for (size_t j = 0; j <= variablesNumber + slackVariables; j++) {
+        tableau[0][j] = 0;
+    }
+    for (int i = 1; i <= costraintsNumber; i++) {
+        if (needsArtificialVariables[i]) {
+            int j = variablesNumber + slackVariables + ++artificialVariables;
+            tableau[0][j] = -1;
+            baseVariables[j] = i;
+            for (int k = 1; k <= costraintsNumber; k++) {
+                tableau[k][j] = k == i ? 1 : 0;
+            }
+        }
+    }
+#endif
 }
 
 // TODO check
@@ -290,6 +351,7 @@ int createNewTableauFromInput(tableau_format* const tableau) {
             }
         }
     }
+    add_artificial_variables(tableau, needsArtificialVariables);
     return 1;
 }
 
