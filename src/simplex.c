@@ -22,8 +22,8 @@ typedef enum {
 
 typedef struct {
     double(* table)[MAX];
-    variable_type* type_of_variable;
-    int* is_variable_in_base;
+    variable_type type_of_variable[MAX];
+    int is_variable_in_base[MAX];
     int number_of_original_variables, number_of_costraints,
     number_of_slack_variables, number_of_artificial_variables;
     int minimize;
@@ -35,11 +35,11 @@ result_type simplex_second_phase(tableau_format* const tableau, double* const re
 double simplex_loop(tableau_format* const tableau);
 void pivot_on_all_base_variables(tableau_format* const tableau);
 int does_not_need_first_phase(tableau_format* const tableau);
-int createNewTableauFromFile(const char* file_name,
-                             tableau_format* const tableau);
-void createNewTableauFromInput(tableau_format* const tableau);
 void print_variables(tableau_format* const tableau);
 void free_tableau(tableau_format* const tableau);
+int createNewTableauFromFile(const char* file_name,
+                             tableau_format* const tableau);
+int createNewTableauFromInput(tableau_format* const tableau);
 
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 int main(int argc, char *argv[]) {
@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
         }
     };
 #endif
-    printf("PRIVA\n");
     free_tableau(&tableau);
     return 0;
 }
@@ -116,15 +115,30 @@ int does_not_need_first_phase(tableau_format* const tableau) {
     return 1;
 }
 
+// TODO check
+void print_variables(tableau_format* const tableau) {
+    for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
+        if (tableau->is_variable_in_base[j])
+            printf("x(%zu) = %lf", j, tableau->table[tableau->is_variable_in_base[j]][j]);
+    }
+}
+
+void free_tableau(tableau_format* const tableau) {
+    free(tableau->table);
+}
+
 int createNewTableauFromFile(const char* file_name,
                              tableau_format* const tableau) {
+    if (tableau == NULL)  return 0;
+    tableau->minimize = 1;
     return 0;
 }
 
-void createNewTableauFromInput(tableau_format* const tableau) {
+int createNewTableauFromInput(tableau_format* const tableau) {
     int lessEqualCostraints = 0, equalCostraints = 0,
     greaterEqualCostraints = 0, wantToReinsert, i;
 
+    if (tableau == NULL)  return 0;
     tableau->table = malloc(MAX * sizeof(*(tableau->table)));
     do {
         i = 0;
@@ -223,7 +237,7 @@ void createNewTableauFromInput(tableau_format* const tableau) {
     // initialization -> all disequations to <=, and add slack variablesNumber
     for (int j = 0; j <= tableau->number_of_original_variables; j++) {
         tableau->table[0][j] *= -1 * tableau->minimize;
-        tableau->is_variable_in_base[i] = 0;
+        tableau->is_variable_in_base[j] = 0;
         //baseVariables[i] = 0;
     }
     tableau->type_of_variable[0] = NO_VARIABLE;
@@ -276,16 +290,6 @@ void createNewTableauFromInput(tableau_format* const tableau) {
             }
         }
     }
+    return 1;
 }
 
-// TODO check
-void print_variables(tableau_format* const tableau) {
-    for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
-        if (tableau->is_variable_in_base[j])
-            printf("x(%zu) = %lf", j, tableau->table[tableau->is_variable_in_base[j]][j]);
-    }
-}
-
-void free_tableau(tableau_format* const tableau) {
-    free(tableau->table);
-}
