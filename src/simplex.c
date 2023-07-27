@@ -8,7 +8,7 @@
     tableau->number_of_slack_variables +\
     tableau->number_of_artificial_variables)
 
-#define PRINT_ALL_TABLEAU(tableau) do {\
+#define PRINT_ALL_TABLEAU do {\
         printf("\n");\
         for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
             for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
@@ -44,8 +44,10 @@ typedef struct {
 result_type simplex(tableau_format* const tableau, double* const result);
 result_type simplex_first_phase(tableau_format* const tableau);
 result_type simplex_second_phase(tableau_format* const tableau, double* const result);
-double simplex_loop(tableau_format* const tableau);
+result_type simplex_loop(tableau_format* const tableau, double* const result);
 void pivot_on_all_base_variables(tableau_format* const tableau);
+void has_artificial_variable_in_base(tableau_format* const tableau);
+void pivot_on_all_artificial_variables(tableau_format* const tableau);
 void pivot(tableau_format* const tableau, const size_t i, const size_t j);
 int does_not_need_first_phase(tableau_format* const tableau);
 void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables);
@@ -91,8 +93,7 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 }
 
 result_type simplex_first_phase(tableau_format* const tableau) {
-    printf("PROVA\n");
-    PRINT_ALL_TABLEAU(tableau)
+    PRINT_ALL_TABLEAU
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
     double backup_objective_function[TOTAL_VARIABLES];
 
@@ -103,77 +104,87 @@ result_type simplex_first_phase(tableau_format* const tableau) {
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
     pivot_on_all_base_variables(tableau);
-    printf("OIOIOI\n");
-    getc(stdin);
-    if (simplex_loop(tableau) > 0)  return NO_SOLUTION;
 
+    double result;
+    simplex_loop(tableau, &result);
+    if (result > 0) return NO_SOLUTION;
+    if (has_artificial_variable_in_base(tableau)) pivot_on_all_artificial_variables(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
         tableau->table[0][j] = backup_objective_function[j];
     // TODO
-    return NO_SOLUTION;
+    return NORMAL_SOLUTION;
 }
 
 result_type simplex_second_phase(tableau_format* const tableau, double* const result) {
     return UNBOUNDED_SOLUTION;
 }
 
-double simplex_loop(tableau_format* const tableau) {
-    return 0.0;
+result_type simplex_loop(tableau_format* const tableau, double* const result) {
+    return NO_SOLUTION;
 }
 
 void pivot_on_all_base_variables(tableau_format* const tableau) {
+    printf("pivot on all base\n");
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
         if (tableau->is_variable_in_base[j]) {
-            printf("pivot on all base\n");
             pivot(tableau, tableau->is_variable_in_base[j], j);
         }
     }
 }
 
+void has_artificial_variable_in_base(tableau_format* const tableau) {
+
+}
+
+void pivot_on_all_artificial_variables(tableau_format* const tableau) {
+
+}
+
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     double coefficient;
-    assert(!tableau->table[i][j]);
+    printf("(%d, %zu) -> %lf\n", tableau->is_variable_in_base[j], j, tableau->table[i][j]);
+    assert(tableau->table[i][j]);
     if (tableau->table[i][j] != 1) {
-        coefficient = 1 / tableau->table[i][j];
+        // TODO (even pivot)
+        coefficient = 1.0 / tableau->table[i][j];
         for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[i][current_j] *= coefficient;
         }
     }
-    PRINT_ALL_TABLEAU(tableau)
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
         if (tableau->table[current_i][j] != 0) {
             coefficient = -tableau->table[current_i][j];
             for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+                if (current_i == i && current_j == j) continue;
                 tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
             }
         }
     }
-    PRINT_ALL_TABLEAU(tableau)
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
         if (tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)  return 0;
+    printf("DoesNotNEED\n");
     return 1;
 }
 
 void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables) {
-#if 0
-    for (size_t j = 0; j <= variablesNumber + slackVariables; j++) {
-        tableau[0][j] = 0;
+    for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
+        tableau->table[0][j] = 0;
     }
-    for (int i = 1; i <= costraintsNumber; i++) {
+    for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         if (needsArtificialVariables[i]) {
-            int j = variablesNumber + slackVariables + ++artificialVariables;
-            tableau[0][j] = -1;
-            baseVariables[j] = i;
-            for (int k = 1; k <= costraintsNumber; k++) {
-                tableau[k][j] = k == i ? 1 : 0;
+            tableau->number_of_artificial_variables++;
+            tableau->type_of_variable[TOTAL_VARIABLES] = ARTIFICIAL_VARIABLE;
+            tableau->table[0][TOTAL_VARIABLES] = -1;
+            tableau->is_variable_in_base[TOTAL_VARIABLES] = i;
+            for (size_t k = 1; k <= tableau->number_of_costraints; k++) {
+                tableau->table[k][TOTAL_VARIABLES] = k == i ? 1 : 0;
             }
         }
     }
-#endif
 }
 
 // TODO check
@@ -196,10 +207,11 @@ int createNewTableauFromFile(const char* file_name,
 }
 
 int createNewTableauFromInput(tableau_format* const tableau) {
+    if (tableau == NULL)  return 0;
+
     int lessEqualCostraints = 0, equalCostraints = 0,
     greaterEqualCostraints = 0, wantToReinsert, i;
 
-    if (tableau == NULL)  return 0;
     tableau->table = malloc(MAX * sizeof(*(tableau->table)));
     do {
         i = 0;
