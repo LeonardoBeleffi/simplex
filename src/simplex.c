@@ -87,10 +87,7 @@ int main(int argc, char *argv[]) {
 
 result_type simplex(tableau_format* const tableau, double* const result) {
     *result = 0;
-    if (simplex_first_phase(tableau) == NO_SOLUTION) {
-        printf("SONO QUI?\n");
-        return NO_SOLUTION;
-    }
+    if (simplex_first_phase(tableau) == NO_SOLUTION)  return NO_SOLUTION;
     printf("\n\n Fase 2 \n\n");
     return simplex_second_phase(tableau, result);
 }
@@ -107,9 +104,7 @@ result_type simplex_first_phase(tableau_format* const tableau) {
         tableau->table[0][j] =
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
-    PRINT_ALL_TABLEAU
     pivot_on_all_base_variables(tableau);
-    PRINT_ALL_TABLEAU
     double result;
     simplex_loop(tableau, &result);
     printf("\nTableau ottimo fase 1\n");
@@ -122,7 +117,6 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     // TODO
     // TODO assert input dimension
     pivot_on_all_base_variables(tableau);
-    PRINT_ALL_TABLEAU
     return NORMAL_SOLUTION;
 }
 
@@ -140,7 +134,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
             double minimum = -1;
             if (tableau->table[0][j] <= 0) continue;
             PRINT_ALL_TABLEAU
-            printf("costo: %lf\n", tableau->table[0][j]);
+            //printf("costo: %lf\n", tableau->table[0][j]);
             is_over = 0;
             // TODO function
             for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
@@ -160,6 +154,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
         // TODO add pivoting and unbounded checks
         // TODO check why empty costraint gives problems
     }
+    PRINT_ALL_TABLEAU
     *result = tableau->table[0][0];
     return NORMAL_SOLUTION;
 }
@@ -262,7 +257,7 @@ void add_artificial_variables(tableau_format* const tableau, int* needsArtificia
 void print_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
         if (tableau->is_variable_in_base[j])
-            printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][j]);
+            printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
     }
 }
 
