@@ -9,15 +9,15 @@
     tableau->number_of_artificial_variables)
 
 #define PRINT_ALL_TABLEAU do {\
-        printf("\n");\
-        for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
-            for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
-                printf("%lf %s", tableau->table[i][j], !j ? "| " : "");\
-            }\
-            printf("\n%s", !i ? "-----------------------------------\n" : "");\
+    printf("\n");\
+    for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
+        for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
+            printf("%lf %s", tableau->table[i][j], !j ? "| " : "");\
         }\
-        printf("\n");\
-    } while(0);
+        printf("\n%s", !i ? "-----------------------------------\n" : "");\
+    }\
+    printf("\n");\
+} while(0);
 
 typedef enum {
     NO_SOLUTION = 0,
@@ -93,20 +93,18 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 }
 
 result_type simplex_first_phase(tableau_format* const tableau) {
-    PRINT_ALL_TABLEAU
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
     double backup_objective_function[TOTAL_VARIABLES];
 
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
+        printf("%lf ", tableau->table[0][j]);
         backup_objective_function[j] = tableau->table[0][j];
         tableau->table[0][j] =
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
     pivot_on_all_base_variables(tableau);
-
     double result;
-    PRINT_ALL_TABLEAU
     simplex_loop(tableau, &result);
     if (result > 0) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
@@ -114,16 +112,46 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
         tableau->table[0][j] = backup_objective_function[j];
     // TODO
-    PRINT_ALL_TABLEAU
     return NORMAL_SOLUTION;
 }
 
 result_type simplex_second_phase(tableau_format* const tableau, double* const result) {
-    return UNBOUNDED_SOLUTION;
+    return simplex_loop(tableau, result);
 }
 
 result_type simplex_loop(tableau_format* const tableau, double* const result) {
-    return NO_SOLUTION;
+    int is_over = 0, is_unbounded;
+    while (!is_over) {
+        is_over = 1;
+        is_unbounded = 1;
+        for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
+            size_t minimum_index = 0;
+            double minimum = -1;
+            if (tableau->table[0][j] > 0) {
+                is_over = 0;
+                // TODO function
+                for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
+                    if (tableau->table[i][j] <=0) {
+                        continue;
+                    }
+                    double ratio = tableau->table[i][0] / tableau->table[i][j];
+                    if (minimum < 0 || ratio < minimum) {
+                        minimum = ratio;
+                        minimum_index = i;
+                    }
+                }
+            }
+            if (minimum >= 0) {
+                printf("pivot_on_all_base_variables %d %zu\n", tableau->is_variable_in_base[j], j);
+                pivot(tableau, minimum_index, j);
+                is_unbounded = 0;
+
+            }
+        }
+        // TODO add pivoting and unbounded checks
+    }
+    *result = tableau->table[0][0];
+    return is_unbounded ? UNBOUNDED_SOLUTION : NORMAL_SOLUTION;
 }
 
 void pivot_on_all_base_variables(tableau_format* const tableau) {
@@ -173,8 +201,9 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
 }
 
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
-    double coefficient;
+    double coefficient = 1;
     printf("(%d, %zu) -> %lf\n", tableau->is_variable_in_base[j], j, tableau->table[i][j]);
+    printf("pivot on (%zu, %zu)\n", i, j);
     assert(tableau->table[i][j]);
     for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
         if (tableau->is_variable_in_base[current_j] == i){
@@ -183,20 +212,19 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
             break;
         }
     }
+    printf("(%d, %zu) -> %lf\n", tableau->is_variable_in_base[j], j, tableau->table[i][j]);
     if (tableau->table[i][j] != 1) {
         // TODO (even pivot)
         coefficient = 1.0 / tableau->table[i][j];
-        for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++) {
+        for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[i][current_j] *= coefficient;
         }
     }
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
-        if (tableau->table[current_i][j] != 0) {
-            coefficient = -tableau->table[current_i][j];
-            for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
-                if (current_i == i && current_j == j) continue;
-                tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
-            }
+        if (tableau->table[current_i][j] == 0 || current_i == i)  continue;
+        coefficient = -tableau->table[current_i][j];
+        for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+            tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
         }
     }
 }
@@ -209,9 +237,6 @@ int does_not_need_first_phase(tableau_format* const tableau) {
 }
 
 void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables) {
-    for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-        tableau->table[0][j] = 0;
-    }
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         if (needsArtificialVariables[i]) {
             tableau->number_of_artificial_variables++;
