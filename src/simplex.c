@@ -114,6 +114,7 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 
 result_type simplex_first_phase(tableau_format* const tableau) {
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
+    printf("\n\n Fase 1 \n\n");
     double backup_objective_function[TOTAL_VARIABLES + 1];
     //PRINT_ALL_TABLEAU
     // TODO maybe function
@@ -189,7 +190,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
 void pivot_on_all_base_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
         if (tableau->is_variable_in_base[j]) {
-            printf("%d %zu\n", tableau->is_variable_in_base[j], j);
+            //printf("%d %zu\n", tableau->is_variable_in_base[j], j);
             pivot(tableau, tableau->is_variable_in_base[j], j);
             //PRINT_ALL_BASE_VARIABLES
             //PRINT_ALL_TABLEAU
