@@ -3,6 +3,9 @@
 #include <assert.h>
 
 #define MAX 10000
+#define TOLERANCE 0.00001
+
+#define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
 
 #define TOTAL_VARIABLES (tableau->number_of_original_variables +\
     tableau->number_of_slack_variables +\
@@ -130,7 +133,8 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     simplex_loop(tableau, &result);
     printf("\nTableau ottimo fase 1\n");
     PRINT_ALL_TABLEAU
-    if (result > 0.0) return NO_SOLUTION;
+    //if (result > 0.0) return NO_SOLUTION;
+    if (result > -TOLERANCE) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
@@ -154,13 +158,15 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
         for (size_t j = 1; j <= TOTAL_VARIABLES && !is_unbounded; j++) {
             size_t minimum_index = 0;
             double minimum = -1.0;
-            if (tableau->table[0][j] <= 0.0) continue;
+            //if (tableau->table[0][j] <= 0.0) continue;
+            if (tableau->table[0][j] <= TOLERANCE) continue;
             //printf("costo: %lf\n", tableau->table[0][j]);
             is_unbounded = 1;
             is_over = 0;
             // TODO function
             for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
-                if (tableau->table[i][j] <= 0.0) continue;
+                //if (tableau->table[i][j] <= 0.0) continue;
+                if (tableau->table[i][j] <= TOLERANCE) continue;
                 is_unbounded = 0;
                 double ratio = tableau->table[i][0] / tableau->table[i][j];
                 if (minimum_index == 0 || ratio < minimum) {
@@ -256,7 +262,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
     }
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
-        if (tableau->table[current_i][j] == 0 || current_i == i)  continue;
+        if (IS_ZERO(tableau->table[current_i][j]) || current_i == i)  continue;
         coefficient = -tableau->table[current_i][j];
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
@@ -369,7 +375,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? 1 : 0;
             }
-            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < 0) {
+            if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -380,7 +387,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             }
         } else if (typeOfEquation[i - 1] == 0) {
                 needsArtificialVariables[i] = 1;
-            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < 0) {
+            if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -390,7 +398,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? -1 : 0;
             }
-            if (tableau->table[i][0] > 0) {
+            //if (tableau->table[i][0] > 0) {
+            if (tableau->table[i][0] > -TOLERANCE) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables + tableau->number_of_slack_variables] = 0;
             } else {
@@ -524,7 +533,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
                 tableau->table[y][tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = i == y ? 1 : 0;
             }
-            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < 0) {
+            if (tableau->table[i][0] < TOLERANCE) {
                 // addSlackVariable(const int i)
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
@@ -538,7 +548,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
             }
         } else if (i <= lessEqualCostraints + equalCostraints) {
             needsArtificialVariables[i] = 1;
-            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < 0) {
+            if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -549,7 +560,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
                 tableau->table[y][tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = i == y ? -1 : 0;
             }
-            if (tableau->table[i][0] > 0) {
+            //if (tableau->table[i][0] > 0) {
+            if (tableau->table[i][0] > -TOLERANCE) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = 0;
