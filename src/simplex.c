@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #define MAX 10000
-#define TOLERANCE 1e-9
+#define TOLERANCE 1e-7
 //#define TOLERANCE 0.00001
 
 #define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
@@ -132,6 +132,7 @@ result_type simplex_first_phase(tableau_format* const tableau) {
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
     }
     //PRINT_ALL_TABLEAU
+
     pivot_on_all_base_variables(tableau);
     double result;
     simplex_loop(tableau, &result);
@@ -155,64 +156,66 @@ result_type simplex_second_phase(tableau_format* const tableau, double* const re
 
 result_type simplex_loop(tableau_format* const tableau, double* const result) {
     result_type type_of_result = NO_SOLUTION;
-    //int is_unbounded = 0;
-    //while (!is_over && !is_unbounded) {
+
     while (type_of_result == NO_SOLUTION) {
-        //PRINT_ALL_TABLEAU
         type_of_result = NORMAL_SOLUTION;
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
             if (tableau->table[0][j] <= TOLERANCE) continue;
-            //is_over = 0;
-            type_of_result = UNBOUNDED_SOLUTION;
-            // is_unbounded = 1;
-
+            //if (tableau->is_variable_in_base[j])  continue;
             size_t minimum_index = minimum_ratio(tableau, j);
+            type_of_result = UNBOUNDED_SOLUTION;
 
+            //printf("index = %zu\n", minimum_index);
             if (!minimum_index) continue;
             type_of_result = NO_SOLUTION;
+
+            printf("Cost: %24lf.\t", tableau->table[0][0]);
             pivot(tableau, minimum_index, j);
             break;
         }
         // TODO check why empty costraint gives problems
     }
+
     *result = tableau->table[0][0];
-    //return is_unbounded ? UNBOUNDED_SOLUTION : NORMAL_SOLUTION;
     return type_of_result;
 }
 
 size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
     size_t minimum_index = 0;
     double minimum;
+    size_t exiting_variable_index = 0;
 
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         if (tableau->table[i][j] <= TOLERANCE) continue;
         double ratio = tableau->table[i][0] / tableau->table[i][j];
-        if (minimum_index == 0 || ratio < minimum) {
+        //printf("ratio: %lf\n", ratio);
+        if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
             minimum = ratio;
             minimum_index = i;
+        } else if (IS_ZERO(ratio - minimum)) {
+            for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
+                if (tableau->is_variable_in_base[j] == i && (!exiting_variable_index || j < exiting_variable_index)) {
+                    exiting_variable_index = j;
+                    minimum = ratio;
+                    minimum_index = i;
+                    break;
+                }
+            }
         }
     }
     return minimum_index;
 }
 
 void pivot_on_all_base_variables(tableau_format* const tableau) {
-    for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
-        if (tableau->is_variable_in_base[j]) {
-            //printf("%d %zu\n", tableau->is_variable_in_base[j], j);
+    for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
+        if (tableau->is_variable_in_base[j])
             pivot(tableau, tableau->is_variable_in_base[j], j);
-            //PRINT_ALL_BASE_VARIABLES
-            //PRINT_ALL_TABLEAU
-            //getc(stdin);
-        }
-    }
 }
 
 size_t has_artificial_variable_in_base(tableau_format* const tableau) {
-    for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
-        if (tableau->is_variable_in_base[j] &&
-            tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)
+    for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
+        if (tableau->is_variable_in_base[j] && tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE)
             return j;
-    }
     return 0;
 }
 
@@ -231,13 +234,10 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
             }
         }
         if (!found_pivotable_variable) {
-            // remove row and column
-            for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+            for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++)
                 tableau->table[i][current_j] = 0;
-            }
-            for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
+            for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++)
                 tableau->table[current_i][j] = 0;
-            }
             tableau->is_variable_in_base[j] = 0;
         }
     }
@@ -246,12 +246,8 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
 
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     double coefficient = 1.0;
-    // printf("pivot on (%zu, %zu)\n", i, j);
-    //printf("Pivot on (%zu, %zu)\n", i, j);
-    //PRINT_ALL_TABLEAU
+    printf("Pivot on (%zu, %zu)\n", i, j);
 
-
-    assert(!IS_ZERO(tableau->table[i][j]));
     int found = 0;
     for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
         if (tableau->is_variable_in_base[current_j] == i){
@@ -262,35 +258,32 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
     }
     assert(found == 1);
-    // printf("(%d, %zu) -> %lf\n", tableau->is_variable_in_base[j], j, tableau->table[i][j]);
-    //if (tableau->table[i][j] != 1.0) {
     if (!IS_ZERO(tableau->table[i][j] - 1.0)) {
-        // TODO (even pivot)
         coefficient = tableau->table[i][j];
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[i][current_j] /= coefficient;
         }
-        //printf("Pivot coefficient %lf\n", coefficient);
     }
+
+    restore_zeroes(tableau);
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
         coefficient = -tableau->table[current_i][j];
         if (IS_ZERO(coefficient) || current_i == i)  continue;
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
         }
-        //printf("Pivot coefficient for line %zu = %lf)\n", current_i, coefficient);
+        //printf("Pivot coefficient for line %zu = %lf\n", current_i, coefficient);
+        //printf("%lf += %lf * %lf)\n", tableau->table[current_i][0], coefficient, tableau->table[i][0]);
+        if (current_i)
+            assert(tableau->table[current_i][0] >= -TOLERANCE);
     }
     restore_zeroes(tableau);
-    // PRINT_ALL_TABLEAU
-    //printf("\n\n\n------------------------\n\n\n");
-    //getc(stdin);
 }
 
-
 void restore_zeroes(tableau_format* const tableau) {
-    for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++)
-        for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++)
-            if (IS_ZERO(tableau->table[current_i][current_j]))  tableau->table[current_i][current_j] = 0;
+    for (size_t i = 0; i <= tableau->number_of_costraints; i++)
+        for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
+            if (IS_ZERO(tableau->table[i][j]))  tableau->table[i][j] = 0.0;
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
