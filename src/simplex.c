@@ -108,12 +108,12 @@ int main(int argc, char *argv[]) {
 
 result_type simplex(tableau_format* const tableau, double* const result) {
     *result = 0;
-    PRINT_ALL_TABLEAU
+    //PRINT_ALL_TABLEAU
     if (simplex_first_phase(tableau) == NO_SOLUTION)  return NO_SOLUTION;
     printf("\n\n Fase 2 \n\n");
     result_type res = simplex_second_phase(tableau, result);
     *result *= tableau->minimize;
-    PRINT_ALL_TABLEAU
+    //PRINT_ALL_TABLEAU
     return res;
 }
 
@@ -133,8 +133,8 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     pivot_on_all_base_variables(tableau);
     double result;
     simplex_loop(tableau, &result);
-    printf("\nTableau ottimo fase 1\n");
-    PRINT_ALL_TABLEAU
+    //printf("\nTableau ottimo fase 1\n");
+    //PRINT_ALL_TABLEAU
     //if (result > 0.0) return NO_SOLUTION;
     if (result > TOLERANCE) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
@@ -250,7 +250,6 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     double coefficient = 1.0;
     // printf("pivot on (%zu, %zu)\n", i, j);
     printf("Pivot on (%zu, %zu)\n", i, j);
-    printf("\n\n\n------------------------\n");
     //PRINT_ALL_TABLEAU
     assert(!IS_ZERO(tableau->table[i][j]));
     int found = 0;
@@ -282,7 +281,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         //printf("Pivot coefficient for line %zu = %lf)\n", current_i, coefficient);
     }
     // PRINT_ALL_TABLEAU
-    printf("\n\n\n------------------------\n\n\n");
+    //printf("\n\n\n------------------------\n\n\n");
     //getc(stdin);
 }
 
