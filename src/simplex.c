@@ -154,23 +154,22 @@ result_type simplex_second_phase(tableau_format* const tableau, double* const re
 }
 
 result_type simplex_loop(tableau_format* const tableau, double* const result) {
-    int is_over = 0;
+    result_type type_of_result = NO_SOLUTION;
     //int is_unbounded = 0;
     //while (!is_over && !is_unbounded) {
-    while (!is_over) {
+    while (type_of_result == NO_SOLUTION) {
         //PRINT_ALL_TABLEAU
-        is_over = 1;
+        type_of_result = NORMAL_SOLUTION;
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
             if (tableau->table[0][j] <= TOLERANCE) continue;
             //is_over = 0;
-            is_over = 2;
+            type_of_result = UNBOUNDED_SOLUTION;
             // is_unbounded = 1;
 
             size_t minimum_index = minimum_ratio(tableau, j);
 
             if (!minimum_index) continue;
-            is_over = 0;
-            //is_unbounded = 0;
+            type_of_result = NO_SOLUTION;
             pivot(tableau, minimum_index, j);
             break;
         }
@@ -178,7 +177,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
     }
     *result = tableau->table[0][0];
     //return is_unbounded ? UNBOUNDED_SOLUTION : NORMAL_SOLUTION;
-    return is_over == 2 ? UNBOUNDED_SOLUTION : NORMAL_SOLUTION;
+    return type_of_result;
 }
 
 size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
