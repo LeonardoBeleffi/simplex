@@ -136,7 +136,7 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     printf("\nTableau ottimo fase 1\n");
     PRINT_ALL_TABLEAU
     //if (result > 0.0) return NO_SOLUTION;
-    if (result > -TOLERANCE) return NO_SOLUTION;
+    if (result > TOLERANCE) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
@@ -155,7 +155,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
     int is_over = 0;
     int is_unbounded = 0;
     while (!is_over && !is_unbounded) {
-        PRINT_ALL_TABLEAU
+        //PRINT_ALL_TABLEAU
         is_over = 1;
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
             size_t minimum_index = 0;
@@ -251,7 +251,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     // printf("pivot on (%zu, %zu)\n", i, j);
     printf("Pivot on (%zu, %zu)\n", i, j);
     printf("\n\n\n------------------------\n");
-    PRINT_ALL_TABLEAU
+    //PRINT_ALL_TABLEAU
     assert(!IS_ZERO(tableau->table[i][j]));
     int found = 0;
     for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
@@ -333,7 +333,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     if ((fdata = fopen(file_name, "r")) == NULL) return 0;
 
     // Leggi il numero di righe e colonne 
-    fscanf(fdata, "%d %d", &(tableau->number_of_costraints), &(tableau->number_of_original_variables));
+    fscanf(fdata, "%d %d", &(tableau->number_of_original_variables), &(tableau->number_of_costraints));
 
     int typeOfEquation[tableau->number_of_costraints];
     // Inizializza il Tableau
@@ -341,12 +341,12 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         for (size_t j = 0; j <= tableau->number_of_original_variables; j++)
             tableau->table[i][j] =0.0;
 
-    // Leggi il vettore della funzione obiettivo
-    for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
-        double cost;
-        fscanf(fdata,"%lf", &cost);
-        //tableau[0][j] = -cost;
-        tableau->table[0][j] = -cost;
+    // Leggi il vettore dei termini noti
+    for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
+        //double cost;
+        //fscanf(fdata,"%lf", &cost);
+        //tableau->table[0][j] = -cost;
+        fscanf(fdata,"%lf", &(tableau->table[i][0]));
     }
 
     // Leggi il vettore dei "versi"
@@ -358,9 +358,12 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     }
 
     // Leggi la matrice dei coefficienti
-    for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
+    for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
         // Leggi il costo della colonna j
-        fscanf(fdata,"%lf", &(tableau->table[i][0]));
+        double cost;
+        fscanf(fdata,"%lf", &cost);
+        tableau->table[0][j] = -cost;
+        //fscanf(fdata,"%lf", &(tableau->table[i][0]));
 
         int no;
         // Leggi il numero di coefficienti non-zero della colonna j
@@ -370,7 +373,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         // Leggi i coefficienti non-zero della colonna j
         for (size_t k = 1; k <= no; k++) {
             fscanf(fdata, "%d", &lastVariable);
-            fscanf(fdata, "%lf", &(tableau->table[i][lastVariable]));
+            fscanf(fdata, "%lf", &(tableau->table[lastVariable][j]));
         }
     }
     // Chiudi il file dati
