@@ -3,7 +3,8 @@
 #include <assert.h>
 
 #define MAX 10000
-#define TOLERANCE 0.00001
+#define TOLERANCE 1e-9
+//#define TOLERANCE 0.00001
 
 #define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
 
@@ -249,6 +250,8 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     double coefficient = 1.0;
     // printf("pivot on (%zu, %zu)\n", i, j);
     printf("Pivot on (%zu, %zu)\n", i, j);
+    printf("\n\n\n------------------------\n");
+    PRINT_ALL_TABLEAU
     assert(!IS_ZERO(tableau->table[i][j]));
     int found = 0;
     for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
@@ -278,6 +281,9 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
         //printf("Pivot coefficient for line %zu = %lf)\n", current_i, coefficient);
     }
+    // PRINT_ALL_TABLEAU
+    printf("\n\n\n------------------------\n\n\n");
+    //getc(stdin);
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
