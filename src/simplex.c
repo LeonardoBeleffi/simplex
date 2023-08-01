@@ -21,7 +21,7 @@ unsigned long least_common_multiple(unsigned long a, unsigned long b) {
         b = a;
         a = tmp;
     }
-    for (size_t i = a; i > a * b; i++) {
+    for (size_t i = a; i < a * b; i++) {
         if (!(a % i) && !(b % i)) return i;
     }
     return a * b;
@@ -48,13 +48,13 @@ fraction fraction_from_decimal(double a) {
         is_negative = 1;
         a = -a;
     }
-    while (result.numerator != a) {
+    while ((result.numerator = (long) a) != a) {
         a *= 10;
         result.numerator = (long) a;
         result.denominator *= 10;
     }
     result = simplify(result);
-    result.numerator *= is_negative ? -1 : 1;
+    result.numerator *= is_negative ? -1L : 1L;
     return result;
 }
 
@@ -68,18 +68,20 @@ fraction simplify(fraction a) {
     fraction result = a;
     unsigned long gcm = greatest_common_divisor(ABSOLUTE_VALUE(a.numerator), a.denominator);
     if (gcm > 1) {
-        result.numerator /= gcm;
+        result.numerator /= (long) gcm;
         result.denominator /= gcm;
     }
+    if (!result.numerator)  result.denominator = 1;
     return result;
 }
 
-fraction sum(const fraction a, const fraction b) {
+fraction fraction_sum(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction result;
-    result.denominator = least_common_multiple(a.denominator, b.denominator);
-    result.numerator = result.denominator * (a.numerator / a.denominator + b.numerator / b.denominator);
+    //result.denominator = least_common_multiple(a.denominator, b.denominator);
+    result.denominator = a.denominator * b.denominator;
+    result.numerator =  a.numerator * ((long) result.denominator / a.denominator) + b.numerator * ((long) result.denominator / b.denominator);
     return simplify(result);
 }
 
@@ -87,7 +89,7 @@ fraction fraction_subtract(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction new_b = {.numerator = -b.numerator, .denominator = b.denominator};
-    return sum(a, new_b);
+    return fraction_sum(a, new_b);
 }
 
 fraction fraction_multiply(const fraction a, const fraction b) {
@@ -102,8 +104,14 @@ fraction fraction_multiply(const fraction a, const fraction b) {
 fraction fraction_divide(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
-    fraction new_b = {.numerator = b.denominator, .denominator = b.numerator};
-    return fraction_multiply(a, new_b);
+    assert(b.numerator);
+    fraction new_b = {
+        .numerator = (long) b.denominator * (b.numerator < 0 ? -1 : 1),
+        .denominator = ABSOLUTE_VALUE(b.numerator)
+    };
+    fraction result = fraction_multiply(a, new_b);
+    //printf("\nDOPO %ld/%lu * %ld/%lu = %ld/%lu\n", a.numerator, a.denominator, new_b.numerator, new_b.denominator, result.numerator, result.denominator);
+    return result;
 }
 
 int fraction_compare_with_double(const fraction a, double b) {
@@ -141,7 +149,7 @@ int fraction_compare_with_fraction(const fraction a, const fraction b) {
     printf("\n\n");\
     for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
         for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
-            printf("%10lf %s", tableau->table[i][j], !j ? "| " : "");\
+            printf("%ld/%lu %s", tableau->table[i][j].numerator, tableau->table[i][j].denominator, !j ? "| " : "");\
         }\
         printf("\n%s", !i ? "-----------------------------------\n" : "");\
     }\
@@ -260,7 +268,7 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     //PRINT_ALL_TABLEAU
     //if (result > 0.0) return NO_SOLUTION;
     //if (!IS_ZERO(result)) return NO_SOLUTION;
-    if (!fraction_compare_with_double(result, 0)) return NO_SOLUTION;
+    if (fraction_compare_with_double(result, 0) > 0) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
@@ -280,9 +288,10 @@ result_type simplex_loop(tableau_format* const tableau, fraction* const result) 
 
     while (type_of_result == NO_SOLUTION) {
         type_of_result = NORMAL_SOLUTION;
+        //PRINT_ALL_TABLEAU
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
             //if (tableau->table[0][j] <= TOLERANCE) continue;
-            if (fraction_compare_with_double(tableau->table[0][j], 0) < 1) continue;
+            if (fraction_compare_with_double(tableau->table[0][j], 0) <= 0) continue;
             //if (tableau->is_variable_in_base[j])  continue;
             size_t minimum_index = minimum_ratio(tableau, j);
             type_of_result = UNBOUNDED_SOLUTION;
@@ -293,6 +302,7 @@ result_type simplex_loop(tableau_format* const tableau, fraction* const result) 
 
             printf("Cost: %24lf.\t", double_from_fraction(tableau->table[0][0]));
             pivot(tableau, minimum_index, j);
+            //PRINT_ALL_TABLEAU
             break;
         }
         // TODO check why empty costraint gives problems
@@ -309,7 +319,7 @@ size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
 
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         //if (tableau->table[i][j] <= TOLERANCE) continue;
-        if (fraction_compare_with_double(tableau->table[i][j], 0) < 1) continue;
+        if (fraction_compare_with_double(tableau->table[i][j], 0) <= 0) continue;
         fraction ratio = fraction_divide(tableau->table[i][0], tableau->table[i][j]);
         //printf("ratio: %lf\n", ratio);
         //if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
@@ -335,6 +345,7 @@ void pivot_on_all_base_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= TOTAL_VARIABLES; j++)
         if (tableau->is_variable_in_base[j])
             pivot(tableau, tableau->is_variable_in_base[j], j);
+    //printf("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n");
 }
 
 size_t has_artificial_variable_in_base(tableau_format* const tableau) {
@@ -355,7 +366,7 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
         found_pivotable_variable = 0;
         for (size_t current_j = 1; current_j <= non_artificial_variables; current_j++) {
             //if (!IS_ZERO(tableau->table[i][current_j])) {
-            if (!fraction_compare_with_double(tableau->table[i][current_j], 0)) {
+            if (fraction_compare_with_double(tableau->table[i][current_j], 0)) {
                 found_pivotable_variable = 1;
                 pivot(tableau, i, current_j);
             }
@@ -389,23 +400,33 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
     if (fraction_compare_with_double(tableau->table[i][j], 1)) {
         coefficient = tableau->table[i][j];
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
+    //printf("E qui no? %zu / %d\n", current_j, TOTAL_VARIABLES);
+            //printf("%lu/%ld // %lu/%ld\n", tableau->table[i][current_j].numerator, tableau->table[i][current_j].denominator, coefficient.numerator, coefficient.denominator);
+            //printf("prima: %lu/%ld\n", tableau->table[i][current_j].numerator, tableau->table[i][current_j].denominator);
+            //printf("coeff: %lu/%ld\n", coefficient.numerator, coefficient.denominator);
+// TODO
+        //printf("WEWE: %ld/%lu\n", tableau->table[i][j].numerator, tableau->table[i][j].denominator);
             tableau->table[i][current_j] = fraction_divide(tableau->table[i][current_j], coefficient);
+            //printf("dopo: %lu/%ld\n", tableau->table[i][current_j].numerator, tableau->table[i][current_j].denominator);
         }
     }
 
+    //printf("Fin qua va\n");
     //restore_zeroes(tableau);
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
         //coefficient = -tableau->table[current_i][j];
-        coefficient = tableau->table[current_i][j];
+        coefficient = fraction_multiply(tableau->table[current_i][j], fraction_from_decimal(-1));
         //if (IS_ZERO(coefficient) || current_i == i)  continue;
         if (!fraction_compare_with_double(coefficient, 0) || current_i == i)  continue;
-    printf("Sono qui %zu / %d\n", current_i, tableau->number_of_costraints);
+    //printf("Sono i sono qui %zu / %d\n", current_i, tableau->number_of_costraints);
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
-            tableau->table[current_i][current_j] = fraction_subtract(tableau->table[current_i][current_j],
-                                                                     fraction_multiply(coefficient, tableau->table[i][current_j]));
+    //printf("Sono qui %zu / %d\n", current_j, TOTAL_VARIABLES);
+        //printf("(%zu, %zu) -> %ld/%lu = ", current_i, current_j, tableau->table[current_i][current_j].numerator, tableau->table[current_i][current_j].denominator);
+            tableau->table[current_i][current_j] = fraction_sum(tableau->table[current_i][current_j], fraction_multiply(coefficient, tableau->table[i][current_j]));
+        //printf("%ld/%lu + %ld/%lu * %ld/%lu\n", tableau->table[current_i][current_j].numerator, tableau->table[current_i][current_j].denominator, tableau->table[i][current_j].numerator, tableau->table[i][current_j].denominator, coefficient.numerator, coefficient.denominator);
+            //printf("mult: %ld/%lu\n", fraction_multiply(coefficient, tableau->table[i][current_j]));
         }
         //printf("Pivot coefficient for line %zu = %lf\n", current_i, coefficient);
-        //printf("%lf += %lf * %lf)\n", tableau->table[current_i][0], coefficient, tableau->table[i][0]);
         if (current_i)
             //assert(tableau->table[current_i][0] >= -TOLERANCE);
             assert(fraction_compare_with_double(tableau->table[current_i][0], 0) >= 0);
