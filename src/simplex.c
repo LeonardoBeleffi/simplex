@@ -8,13 +8,14 @@
 
 
 // TODO temp
+#include <math.h>
 #define ABSOLUTE_VALUE(x) ((x) < 0 ? -(x) : (x))
 typedef struct {
     long numerator;
     unsigned long denominator;
 } fraction;
 
-unsigned long least_common_multiple(const unsigned long a, const unsigned long b) {
+unsigned long least_common_multiple(unsigned long a, unsigned long b) {
     if (b > a) {
         long tmp = b;
         b = a;
@@ -26,7 +27,9 @@ unsigned long least_common_multiple(const unsigned long a, const unsigned long b
     return a * b;
 }
 
-unsigned long greatest_common_divisor(const unsigned long a, const unsigned long b) {
+fraction simplify(fraction a);
+
+unsigned long greatest_common_divisor(unsigned long a, unsigned long b) {
     if (b < a) {
         long tmp = b;
         b = a;
@@ -38,7 +41,7 @@ unsigned long greatest_common_divisor(const unsigned long a, const unsigned long
     return 1;
 }
 
-fraction fraction_from_decimal(const double a) {
+fraction fraction_from_decimal(double a) {
     fraction result = {.numerator = 0, .denominator = 1};
     char is_negative = 0;
     if (a < 0) {
@@ -50,7 +53,7 @@ fraction fraction_from_decimal(const double a) {
         result.numerator = (long) a;
         result.denominator *= 10;
     }
-    result *= is_negative ? -1 : 1;
+    result.numerator *= is_negative ? -1 : 1;
     return simplify(result);
 }
 
@@ -59,7 +62,7 @@ double double_from_fraction(const fraction a) {
     return ((double) a.numerator) / ((double) a.denominator);
 }
 
-fraction simplify(const fraction a) {
+fraction simplify(fraction a) {
     assert(a.denominator);
     fraction result = a;
     unsigned long gcm = greatest_common_divisor(ABSOLUTE_VALUE(a.numerator), a.denominator);
@@ -67,10 +70,10 @@ fraction simplify(const fraction a) {
         result.numerator /= gcm;
         result.denominator /= gcm;
     }
-    return result
+    return result;
 }
 
-fraction sum(const fraction a, cost fraction b) {
+fraction sum(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction result;
@@ -79,14 +82,14 @@ fraction sum(const fraction a, cost fraction b) {
     return simplify(result);
 }
 
-fraction subtract(const fraction a, cost fraction b) {
+fraction fraction_subtract(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction new_b = {.numerator = -b.numerator, .denominator = b.denominator};
     return sum(a, new_b);
 }
 
-fractions multiply(const fraction a, const fraction b) {
+fraction fraction_multiply(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction result;
@@ -95,14 +98,24 @@ fractions multiply(const fraction a, const fraction b) {
     return simplify(result);
 }
 
-fractions divide(const fraction a, const fraction b) {
+fraction fraction_divide(const fraction a, const fraction b) {
     assert(a.denominator);
     assert(b.denominator);
     fraction new_b = {.numerator = b.denominator, .denominator = b.numerator};
-    return multiply(a, new_b);
+    return fraction_multiply(a, new_b);
 }
 
-#define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
+int fraction_compare_with_double(const fraction a, double b) {
+    double result = double_from_fraction(a) - b;
+    return !result ? 0 :
+            result < 0 ? -1 : 1;
+}
+
+int fraction_compare_with_fraction(const fraction a, const fraction b) {
+    return fraction_compare_with_double(a, double_from_fraction(b));
+}
+
+//#define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
 
 #define TOTAL_VARIABLES (tableau->number_of_original_variables +\
     tableau->number_of_slack_variables +\
@@ -155,10 +168,10 @@ typedef struct {
     int minimize;
 } tableau_format;
 
-result_type simplex(tableau_format* const tableau, double* const result);
+result_type simplex(tableau_format* const tableau, fraction* const result);
 result_type simplex_first_phase(tableau_format* const tableau);
-result_type simplex_second_phase(tableau_format* const tableau, double* const result);
-result_type simplex_loop(tableau_format* const tableau, double* const result);
+result_type simplex_second_phase(tableau_format* const tableau, fraction* const result);
+result_type simplex_loop(tableau_format* const tableau, fraction* const result);
 size_t minimum_ratio(tableau_format* const tableau, const size_t j);
 void pivot_on_all_base_variables(tableau_format* const tableau);
 size_t has_artificial_variable_in_base(tableau_format* const tableau);
@@ -175,7 +188,7 @@ int create_tableau_from_input(tableau_format* const tableau);
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 int main(int argc, char *argv[]) {
     tableau_format tableau;
-    double result = 0;
+    fraction result = {.numerator = 0, .denominator = 1};
     if (argc > 1) {
         if (!create_tableau_from_file(&tableau, argv[1])) {
             printf("An error occurred while reading the file!\n");
@@ -195,7 +208,7 @@ int main(int argc, char *argv[]) {
         }
         default: {
             printf("Found optimal solution!\n");
-            printf("\nOptimal cost: %lf\n\nNon zero variables:\n\n", result);
+            printf("\nOptimal cost: %lf\n\nNon zero variables:\n\n", double_from_fraction(result));
             print_variables(&tableau);
         }
     };
@@ -204,13 +217,14 @@ int main(int argc, char *argv[]) {
 }
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
-result_type simplex(tableau_format* const tableau, double* const result) {
-    *result = 0;
+result_type simplex(tableau_format* const tableau, fraction* const result) {
+    result->numerator = 0;
+    result->denominator = 1;
     //PRINT_ALL_TABLEAU
     if (simplex_first_phase(tableau) == NO_SOLUTION)  return NO_SOLUTION;
     printf("\n\n Fase 2 \n\n");
     result_type res = simplex_second_phase(tableau, result);
-    *result *= tableau->minimize;
+    *result = fraction_multiply(*result, fraction_from_decimal(tableau->minimize));
     //PRINT_ALL_TABLEAU
     return res;
 }
@@ -218,24 +232,28 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 result_type simplex_first_phase(tableau_format* const tableau) {
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
     printf("\n\n Fase 1 \n\n");
-    double backup_objective_function[TOTAL_VARIABLES + 1];
+    fraction backup_objective_function[TOTAL_VARIABLES + 1];
     //PRINT_ALL_TABLEAU
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
 //        printf("%lf ", tableau->table[0][j]);
         backup_objective_function[j] = tableau->table[0][j];
-        tableau->table[0][j] =
-            tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
+        fraction coefficient = {
+            .numerator = tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0,
+            .denominator = 1
+        };
+        tableau->table[0][j] = coefficient;
     }
     //PRINT_ALL_TABLEAU
 
     pivot_on_all_base_variables(tableau);
-    double result;
+    fraction result = {.numerator = 0, .denominator = 1};
     simplex_loop(tableau, &result);
     //printf("\nTableau ottimo fase 1\n");
     //PRINT_ALL_TABLEAU
     //if (result > 0.0) return NO_SOLUTION;
-    if (!IS_ZERO(result)) return NO_SOLUTION;
+    //if (!IS_ZERO(result)) return NO_SOLUTION;
+    if (!fraction_compare_with_double(result, 0)) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
@@ -246,17 +264,18 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     return NORMAL_SOLUTION;
 }
 
-result_type simplex_second_phase(tableau_format* const tableau, double* const result) {
+result_type simplex_second_phase(tableau_format* const tableau, fraction* const result) {
     return simplex_loop(tableau, result);
 }
 
-result_type simplex_loop(tableau_format* const tableau, double* const result) {
+result_type simplex_loop(tableau_format* const tableau, fraction* const result) {
     result_type type_of_result = NO_SOLUTION;
 
     while (type_of_result == NO_SOLUTION) {
         type_of_result = NORMAL_SOLUTION;
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
-            if (tableau->table[0][j] <= TOLERANCE) continue;
+            //if (tableau->table[0][j] <= TOLERANCE) continue;
+            if (fraction_compare_with_double(tableau->table[0][j], 0) < 1) continue;
             //if (tableau->is_variable_in_base[j])  continue;
             size_t minimum_index = minimum_ratio(tableau, j);
             type_of_result = UNBOUNDED_SOLUTION;
@@ -265,7 +284,7 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
             if (!minimum_index) continue;
             type_of_result = NO_SOLUTION;
 
-            printf("Cost: %24lf.\t", tableau->table[0][0]);
+            printf("Cost: %24lf.\t", double_from_fraction(tableau->table[0][0]));
             pivot(tableau, minimum_index, j);
             break;
         }
@@ -278,17 +297,20 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
 
 size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
     size_t minimum_index = 0;
-    double minimum;
     size_t exiting_variable_index = 0;
+    fraction minimum;
 
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
-        if (tableau->table[i][j] <= TOLERANCE) continue;
-        double ratio = tableau->table[i][0] / tableau->table[i][j];
+        //if (tableau->table[i][j] <= TOLERANCE) continue;
+        if (fraction_compare_with_double(tableau->table[i][j], 0) < 1) continue;
+        fraction ratio = fraction_divide(tableau->table[i][0], tableau->table[i][j]);
         //printf("ratio: %lf\n", ratio);
-        if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
+        //if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
+        int comparison = fraction_compare_with_fraction(ratio, minimum);
+        if (minimum_index == 0 || comparison == -1) {
             minimum = ratio;
             minimum_index = i;
-        } else if (IS_ZERO(ratio - minimum)) {
+        } else if (!comparison) {
             for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
                 if (tableau->is_variable_in_base[j] == i && (!exiting_variable_index || j < exiting_variable_index)) {
                     exiting_variable_index = j;
@@ -318,22 +340,24 @@ size_t has_artificial_variable_in_base(tableau_format* const tableau) {
 void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
     size_t j;
     int non_artificial_variables = TOTAL_VARIABLES - tableau->number_of_artificial_variables;
+    fraction zero_fraction = fraction_from_decimal(0);
 
     while ((j = has_artificial_variable_in_base(tableau))) {
         int found_pivotable_variable = 0;
         size_t i = tableau->is_variable_in_base[j];
         found_pivotable_variable = 0;
         for (size_t current_j = 1; current_j <= non_artificial_variables; current_j++) {
-            if (!IS_ZERO(tableau->table[i][current_j])) {
+            //if (!IS_ZERO(tableau->table[i][current_j])) {
+            if (!fraction_compare_with_double(tableau->table[i][current_j], 0)) {
                 found_pivotable_variable = 1;
                 pivot(tableau, i, current_j);
             }
         }
         if (!found_pivotable_variable) {
             for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++)
-                tableau->table[i][current_j] = 0;
+                tableau->table[i][current_j] = zero_fraction;
             for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++)
-                tableau->table[current_i][j] = 0;
+                tableau->table[current_i][j] = zero_fraction;
             tableau->is_variable_in_base[j] = 0;
         }
     }
@@ -341,7 +365,7 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
 }
 
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
-    double coefficient = 1.0;
+    fraction coefficient = fraction_from_decimal(1);
     printf("Pivot on (%zu, %zu)\n", i, j);
 
     int found = 0;
@@ -354,32 +378,38 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
     }
     assert(found == 1);
-    if (!IS_ZERO(tableau->table[i][j] - 1.0)) {
+    //if (!IS_ZERO(tableau->table[i][j] - 1.0)) {
+    if (fraction_compare_with_double(tableau->table[i][j], 1)) {
         coefficient = tableau->table[i][j];
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
-            tableau->table[i][current_j] /= coefficient;
+            tableau->table[i][current_j] = fraction_divide(tableau->table[i][current_j], coefficient);
         }
     }
 
-    restore_zeroes(tableau);
+    //restore_zeroes(tableau);
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
-        coefficient = -tableau->table[current_i][j];
-        if (IS_ZERO(coefficient) || current_i == i)  continue;
+        //coefficient = -tableau->table[current_i][j];
+        coefficient = tableau->table[current_i][j];
+        //if (IS_ZERO(coefficient) || current_i == i)  continue;
+        if (!fraction_compare_with_double(coefficient, 0) || current_i == i)  continue;
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
-            tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
+            tableau->table[current_i][current_j] = fraction_subtract(tableau->table[current_i][current_j],
+                                                                     fraction_multiply(coefficient, tableau->table[i][current_j]));
         }
         //printf("Pivot coefficient for line %zu = %lf\n", current_i, coefficient);
         //printf("%lf += %lf * %lf)\n", tableau->table[current_i][0], coefficient, tableau->table[i][0]);
         if (current_i)
-            assert(tableau->table[current_i][0] >= -TOLERANCE);
+            //assert(tableau->table[current_i][0] >= -TOLERANCE);
+            assert(fraction_compare_with_double(tableau->table[current_i][0], 0) >= 0);
     }
-    restore_zeroes(tableau);
+    //restore_zeroes(tableau);
 }
 
 void restore_zeroes(tableau_format* const tableau) {
     for (size_t i = 0; i <= tableau->number_of_costraints; i++)
         for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
-            if (IS_ZERO(tableau->table[i][j]))  tableau->table[i][j] = 0.0;
+            //if (IS_ZERO(tableau->table[i][j]))  tableau->table[i][j] = 0.0;
+            if (!fraction_compare_with_double(tableau->table[i][j], 0))  tableau->table[i][j] = fraction_from_decimal(0);
 }
 
 int does_not_need_first_phase(tableau_format* const tableau) {
@@ -396,10 +426,12 @@ void add_artificial_variables(tableau_format* const tableau, int* needsArtificia
                 assert(tableau->is_variable_in_base[j] != i);
             tableau->number_of_artificial_variables++;
             tableau->type_of_variable[TOTAL_VARIABLES] = ARTIFICIAL_VARIABLE;
-            tableau->table[0][TOTAL_VARIABLES] = -1;
+            //tableau->table[0][TOTAL_VARIABLES] = -1;
+            tableau->table[0][TOTAL_VARIABLES] = fraction_from_decimal(-1);
             tableau->is_variable_in_base[TOTAL_VARIABLES] = i;
             for (size_t k = 1; k <= tableau->number_of_costraints; k++) {
-                tableau->table[k][TOTAL_VARIABLES] = k == i ? 1 : 0;
+                //tableau->table[k][TOTAL_VARIABLES] = k == i ? 1 : 0;
+                tableau->table[k][TOTAL_VARIABLES] = fraction_from_decimal(k == i ? 1 : 0);
             }
         }
     }
@@ -409,7 +441,8 @@ void add_artificial_variables(tableau_format* const tableau, int* needsArtificia
 void print_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
         if (tableau->is_variable_in_base[j])
-            printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
+            //printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
+            printf("x(%zu) = %lf\n", j, double_from_fraction(tableau->table[tableau->is_variable_in_base[j]][0]));
     }
 }
 
@@ -435,14 +468,19 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     // Inizializza il Tableau
     for (size_t i = 0; i <= tableau->number_of_costraints; i++)
         for (size_t j = 0; j <= tableau->number_of_original_variables; j++)
-            tableau->table[i][j] =0.0;
+            //tableau->table[i][j] = 0.0;
+            tableau->table[i][j] = fraction_from_decimal(0);
 
     // Leggi il vettore dei termini noti
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         //double cost;
         //fscanf(fdata,"%lf", &cost);
         //tableau->table[0][j] = -cost;
-        fscanf(fdata,"%lf", &(tableau->table[i][0]));
+
+        //fscanf(fdata,"%lf", &(tableau->table[i][0]));
+        double tmp;
+        fscanf(fdata,"%lf", &tmp);
+        tableau->table[i][0] = fraction_from_decimal(tmp);
     }
 
     // Leggi il vettore dei "versi"
@@ -458,7 +496,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         // Leggi il costo della colonna j
         double cost;
         fscanf(fdata,"%lf", &cost);
-        tableau->table[0][j] = -cost;
+        //tableau->table[0][j] = -cost;
+        tableau->table[0][j] = fraction_from_decimal(-cost);
         //fscanf(fdata,"%lf", &(tableau->table[i][0]));
 
         int no;
@@ -469,7 +508,10 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         // Leggi i coefficienti non-zero della colonna j
         for (size_t k = 1; k <= no; k++) {
             fscanf(fdata, "%d", &lastVariable);
-            fscanf(fdata, "%lf", &(tableau->table[lastVariable][j]));
+            //fscanf(fdata, "%lf", &(tableau->table[lastVariable][j]));
+            double tmp;
+            fscanf(fdata, "%lf", &tmp);
+            tableau->table[lastVariable][j] = fraction_from_decimal(tmp);
         }
     }
     // Chiudi il file dati
@@ -488,12 +530,15 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         if (typeOfEquation[i - 1] == 1) {
             tableau->number_of_slack_variables++;
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
-                tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? 1 : 0;
+                //tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? 1 : 0;
+                tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = fraction_from_decimal(i == y ? 1 : 0);
             }
             //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            //if (tableau->table[i][0] < TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) < 0) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables + tableau->number_of_slack_variables] = 0;
@@ -503,24 +548,29 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         } else if (typeOfEquation[i - 1] == 0) {
                 needsArtificialVariables[i] = 1;
             //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            //if (tableau->table[i][0] < TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) < 0) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
             }
         } else {
             tableau->number_of_slack_variables++;
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
-                tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? -1 : 0;
+                //tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? -1 : 0;
+                tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = fraction_from_decimal(i == y ? -1 : 0);
             }
             //if (tableau->table[i][0] > 0) {
-            if (tableau->table[i][0] > -TOLERANCE) {
+            //if (tableau->table[i][0] > -TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) > 0) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables + tableau->number_of_slack_variables] = 0;
             } else {
                 tableau->is_variable_in_base[tableau->number_of_original_variables + tableau->number_of_slack_variables] = i;
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
             }
         }
@@ -552,11 +602,16 @@ int create_tableau_from_input(tableau_format* const tableau) {
 
         printf("\nObjective function\n");
 
-        tableau->table[0][0] = 0;
+        //tableau->table[0][0] = 0;
+        tableau->table[0][0] = fraction_from_decimal(0);
+
         for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
             printf("Enter the coefficient of " \
                    "variable number %zu: ", j);
-            scanf("%lf", &(tableau->table[i][j]));
+            //scanf("%lf", &(tableau->table[i][j]));
+            double tmp;
+            scanf("%lf", &tmp);
+            tableau->table[i][j] = fraction_from_decimal(tmp);
         }
         i++;
 
@@ -568,11 +623,17 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\"<=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                //scanf("%lf", &(tableau->table[i][k]));
+                double tmp;
+                scanf("%lf", &tmp);
+                tableau->table[i][k] = fraction_from_decimal(tmp);
             }
             printf("Enter the well-known term for the " \
                    "\"<=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            //scanf("%lf", &(tableau->table[i][0]));
+            double tmp;
+            scanf("%lf", &tmp);
+            tableau->table[i][0] = fraction_from_decimal(tmp);
             i++;
         }
 
@@ -584,11 +645,17 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\"=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                //scanf("%lf", &(tableau->table[i][k]));
+                double tmp;
+                scanf("%lf", &tmp);
+                tableau->table[i][k] = fraction_from_decimal(tmp);
             }
             printf("Enter the well-known term for the " \
                    "\"=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            //scanf("%lf", &(tableau->table[i][0]));
+            double tmp;
+            scanf("%lf", &tmp);
+            tableau->table[i][0] = fraction_from_decimal(tmp);
             i++;
         }
 
@@ -600,11 +667,17 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\">=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                //scanf("%lf", &(tableau->table[i][k]));
+                double tmp;
+                scanf("%lf", &tmp);
+                tableau->table[i][k] = fraction_from_decimal(tmp);
             }
             printf("Enter the well-known term for the " \
                    "\">=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            //scanf("%lf", &(tableau->table[i][0]));
+            double tmp;
+            scanf("%lf", &tmp);
+            tableau->table[i][0] = fraction_from_decimal(tmp);
             i++;
         }
 
@@ -614,12 +687,18 @@ int create_tableau_from_input(tableau_format* const tableau) {
         printf("%s ", tableau->minimize == 1 ? "Min" : "Max");
         for (size_t i = 0; i <= tableau->number_of_costraints; i++) {
             for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
-                printf("%lf ", tableau->table[i][j]);
+                //printf("%lf ", tableau->table[i][j]);
+                printf("%lf ", double_from_fraction(tableau->table[i][j]));
             }
             if (i) {
+                /*
                 printf("%s %lf", i <= lessEqualCostraints ? "<=" :
                        i <= lessEqualCostraints + equalCostraints ? "=" : ">=",
                        tableau->table[i][0]);
+                */
+                printf("%s %lf", i <= lessEqualCostraints ? "<=" :
+                       i <= lessEqualCostraints + equalCostraints ? "=" : ">=",
+                       double_from_fraction(tableau->table[i][0]));
             }
             printf("\n%s", !i ? "s.t. " : "     ");
         }
@@ -632,7 +711,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
     } while (wantToReinsert);
     // initialization -> all disequations to <=, and add slack variablesNumber
     for (size_t j = 0; j <= tableau->number_of_original_variables; j++) {
-        tableau->table[0][j] *= -1 * tableau->minimize;
+        //tableau->table[0][j] *= -1 * tableau->minimize;
+        tableau->table[0][j] = fraction_multiply(tableau->table[0][j], fraction_multiply(fraction_from_decimal(-1), fraction_from_decimal(tableau->minimize)));
         tableau->is_variable_in_base[j] = 0;
         //baseVariables[i] = 0;
     }
@@ -646,13 +726,16 @@ int create_tableau_from_input(tableau_format* const tableau) {
             tableau->number_of_slack_variables++;
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables +
-                    tableau->number_of_slack_variables] = i == y ? 1 : 0;
+                    //tableau->number_of_slack_variables] = i == y ? 1 : 0;
+                    tableau->number_of_slack_variables] = fraction_from_decimal(i == y ? 1 : 0);
             }
             //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            //if (tableau->table[i][0] < TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) < 0) {
                 // addSlackVariable(const int i)
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables +
@@ -664,19 +747,22 @@ int create_tableau_from_input(tableau_format* const tableau) {
         } else if (i <= lessEqualCostraints + equalCostraints) {
             needsArtificialVariables[i] = 1;
             //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            //if (tableau->table[i][0] < TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) < 0) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
             }
         } else {
             tableau->number_of_slack_variables++;
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables +
-                    tableau->number_of_slack_variables] = i == y ? -1 : 0;
+                    tableau->number_of_slack_variables] = fraction_from_decimal(i == y ? -1 : 0);
             }
             //if (tableau->table[i][0] > 0) {
-            if (tableau->table[i][0] > -TOLERANCE) {
+            //if (tableau->table[i][0] > -TOLERANCE) {
+            if (fraction_compare_with_double(tableau->table[i][0], 0) > 0) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = 0;
@@ -684,7 +770,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
                 tableau->is_variable_in_base[tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = i;
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-                    tableau->table[i][j] *= -1;
+                    //tableau->table[i][j] *= -1;
+                    tableau->table[i][j] = fraction_multiply(tableau->table[i][j], fraction_from_decimal(-1));
                 }
             }
         }
