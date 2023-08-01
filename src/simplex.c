@@ -54,6 +54,11 @@ fraction fraction_from_decimal(const double a) {
     return simplify(result);
 }
 
+double double_from_fraction(const fraction a) {
+    assert(a.denominator);
+    return ((double) a.numerator) / ((double) a.denominator);
+}
+
 fraction simplify(const fraction a) {
     assert(a.denominator);
     fraction result = a;
