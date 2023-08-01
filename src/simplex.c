@@ -31,11 +31,11 @@ fraction simplify(fraction a);
 
 unsigned long greatest_common_divisor(unsigned long a, unsigned long b) {
     if (b < a) {
-        long tmp = b;
+        unsigned long tmp = b;
         b = a;
         a = tmp;
     }
-    for (size_t i = sqrt(a); i >= 2; i--) {
+    for (size_t i = a; i >= 2; i--) {
         if (!(a % i) && !(b % i)) return i;
     }
     return 1;
@@ -46,15 +46,16 @@ fraction fraction_from_decimal(double a) {
     char is_negative = 0;
     if (a < 0) {
         is_negative = 1;
+        a = -a;
     }
-    a = ABSOLUTE_VALUE(a);
     while (result.numerator != a) {
         a *= 10;
         result.numerator = (long) a;
         result.denominator *= 10;
     }
+    result = simplify(result);
     result.numerator *= is_negative ? -1 : 1;
-    return simplify(result);
+    return result;
 }
 
 double double_from_fraction(const fraction a) {
@@ -106,6 +107,7 @@ fraction fraction_divide(const fraction a, const fraction b) {
 }
 
 int fraction_compare_with_double(const fraction a, double b) {
+    assert(a.denominator);
     double result = double_from_fraction(a) - b;
     return !result ? 0 :
             result < 0 ? -1 : 1;
@@ -188,7 +190,7 @@ int create_tableau_from_input(tableau_format* const tableau);
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 int main(int argc, char *argv[]) {
     tableau_format tableau;
-    fraction result = {.numerator = 0, .denominator = 1};
+    fraction result = fraction_from_decimal(0);
     if (argc > 1) {
         if (!create_tableau_from_file(&tableau, argv[1])) {
             printf("An error occurred while reading the file!\n");
@@ -218,8 +220,9 @@ int main(int argc, char *argv[]) {
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
 result_type simplex(tableau_format* const tableau, fraction* const result) {
-    result->numerator = 0;
-    result->denominator = 1;
+    //result->numerator = 0;
+    //result->denominator = 1;
+    *result = fraction_from_decimal(0);
     //PRINT_ALL_TABLEAU
     if (simplex_first_phase(tableau) == NO_SOLUTION)  return NO_SOLUTION;
     printf("\n\n Fase 2 \n\n");
@@ -238,16 +241,20 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
 //        printf("%lf ", tableau->table[0][j]);
         backup_objective_function[j] = tableau->table[0][j];
+        /*
         fraction coefficient = {
             .numerator = tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0,
             .denominator = 1
         };
         tableau->table[0][j] = coefficient;
+        */
+        tableau->table[0][j] = fraction_from_decimal(tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0);
     }
     //PRINT_ALL_TABLEAU
 
     pivot_on_all_base_variables(tableau);
-    fraction result = {.numerator = 0, .denominator = 1};
+    //fraction result = {.numerator = 0, .denominator = 1};
+    fraction result = fraction_from_decimal(0);
     simplex_loop(tableau, &result);
     //printf("\nTableau ottimo fase 1\n");
     //PRINT_ALL_TABLEAU
@@ -392,6 +399,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         coefficient = tableau->table[current_i][j];
         //if (IS_ZERO(coefficient) || current_i == i)  continue;
         if (!fraction_compare_with_double(coefficient, 0) || current_i == i)  continue;
+    printf("Sono qui %zu / %d\n", current_i, tableau->number_of_costraints);
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[current_i][current_j] = fraction_subtract(tableau->table[current_i][current_j],
                                                                      fraction_multiply(coefficient, tableau->table[i][current_j]));
