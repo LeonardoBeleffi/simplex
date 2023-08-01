@@ -67,6 +67,7 @@ fraction simplify(const fraction a) {
 
 fraction sum(const fraction a, cost fraction b) {
     assert(a.denominator);
+    assert(b.denominator);
     fraction result;
     result.denominator = least_common_multiple(a.denominator, b.denominator);
     result.numerator = result.denominator * (a.numerator / a.denominator + b.numerator / b.denominator);
@@ -75,12 +76,14 @@ fraction sum(const fraction a, cost fraction b) {
 
 fraction subtract(const fraction a, cost fraction b) {
     assert(a.denominator);
+    assert(b.denominator);
     fraction new_b = {.numerator = -b.numerator, .denominator = b.denominator};
     return sum(a, new_b);
 }
 
 fractions multiply(const fraction a, const fraction b) {
     assert(a.denominator);
+    assert(b.denominator);
     fraction result;
     result.numerator = a.numerator * b.numerator;
     result.denominator = a.denominator * b.denominator;
@@ -89,6 +92,7 @@ fractions multiply(const fraction a, const fraction b) {
 
 fractions divide(const fraction a, const fraction b) {
     assert(a.denominator);
+    assert(b.denominator);
     fraction new_b = {.numerator = b.denominator, .denominator = b.numerator};
     return multiply(a, new_b);
 }
