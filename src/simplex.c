@@ -6,6 +6,93 @@
 #define TOLERANCE 1e-7
 //#define TOLERANCE 0.00001
 
+
+// TODO temp
+#define ABSOLUTE_VALUE(x) ((x) < 0 ? -(x) : (x))
+typedef struct {
+    long numerator;
+    unsigned long denominator;
+} fraction;
+
+unsigned long least_common_multiple(const unsigned long a, const unsigned long b) {
+    if (b > a) {
+        long tmp = b;
+        b = a;
+        a = tmp;
+    }
+    for (size_t i = a; i > a * b; i++) {
+        if (!(a % i) && !(b % i)) return i;
+    }
+    return a * b;
+}
+
+unsigned long greatest_common_divisor(const unsigned long a, const unsigned long b) {
+    if (b < a) {
+        long tmp = b;
+        b = a;
+        a = tmp;
+    }
+    for (size_t i = sqrt(a); i >= 2; i--) {
+        if (!(a % i) && !(b % i)) return i;
+    }
+    return 1;
+}
+
+fraction fraction_from_decimal(const double a) {
+    fraction result = {.numerator = 0, .denominator = 1};
+    char is_negative = 0;
+    if (a < 0) {
+        is_negative = 1;
+    }
+    a = ABSOLUTE_VALUE(a);
+    while (result.numerator != a) {
+        a *= 10;
+        result.numerator = (long) a;
+        result.denominator *= 10;
+    }
+    result *= is_negative ? -1 : 1;
+    return simplify(result);
+}
+
+fraction simplify(const fraction a) {
+    assert(a.denominator);
+    fraction result = a;
+    unsigned long gcm = greatest_common_divisor(ABSOLUTE_VALUE(a.numerator), a.denominator);
+    if (gcm > 1) {
+        result.numerator /= gcm;
+        result.denominator /= gcm;
+    }
+    return result
+}
+
+fraction sum(const fraction a, cost fraction b) {
+    assert(a.denominator);
+    fraction result;
+    result.denominator = least_common_multiple(a.denominator, b.denominator);
+    result.numerator = result.denominator * (a.numerator / a.denominator + b.numerator / b.denominator);
+    return simplify(result);
+}
+
+fraction subtract(const fraction a, cost fraction b) {
+    assert(a.denominator);
+    fraction new_b = {.numerator = -b.numerator, .denominator = b.denominator};
+    return sum(a, new_b);
+}
+
+fractions multiply(const fraction a, const fraction b) {
+    assert(a.denominator);
+    fraction result;
+    result.numerator = a.numerator * b.numerator;
+    result.denominator = a.denominator * b.denominator;
+    return simplify(result);
+}
+
+fractions divide(const fraction a, const fraction b) {
+    assert(a.denominator);
+    fraction new_b = {.numerator = b.denominator, .denominator = b.numerator};
+    return multiply(a, new_b);
+}
+
 #define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
 
 #define TOTAL_VARIABLES (tableau->number_of_original_variables +\
@@ -51,7 +138,7 @@ typedef enum {
 } variable_type;
 
 typedef struct {
-    double(* table)[MAX];
+    fraction(* table)[MAX];
     variable_type type_of_variable[MAX];
     int is_variable_in_base[MAX];
     int number_of_original_variables, number_of_costraints,
