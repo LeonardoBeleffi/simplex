@@ -209,16 +209,20 @@ int main(int argc, char *argv[]) {
     }
     switch (simplex(&tableau, &result)) {
         case NO_SOLUTION: {
-            printf("There is no solution for this problem!\n");
+            printf("\n\nThere is no solution for this problem!\n");
             break;
         }
         case UNBOUNDED_SOLUTION: {
-            printf("The solution is unbounded!\n");
+            printf("\n\nThe solution is unbounded!\n");
             break;
         }
         default: {
-            printf("Found optimal solution!\n");
-            printf("\nOptimal cost: %lf\n\nNon zero variables:\n\n", double_from_fraction(result));
+            printf("\n\nFound optimal solution!\n");
+            printf("\nOptimal cost: %ld", result.numerator);
+            if (ABSOLUTE_VALUE(result.denominator) != 1)
+                printf("/%lu", result.denominator);
+            printf(" = %lf\n\n", double_from_fraction(result));
+            printf("Non zero variables:\n\n");
             print_variables(&tableau);
         }
     };
@@ -466,12 +470,15 @@ void add_artificial_variables(tableau_format* const tableau, int* needsArtificia
     }
 }
 
-// TODO check
 void print_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
-        if (tableau->is_variable_in_base[j])
-            //printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
-            printf("x(%zu) = %lf\n", j, double_from_fraction(tableau->table[tableau->is_variable_in_base[j]][0]));
+        if (tableau->is_variable_in_base[j]) {
+            fraction tmp = tableau->table[tableau->is_variable_in_base[j]][0];
+            printf("x(%zu) = %ld", j, tmp.numerator);
+            if (ABSOLUTE_VALUE(tmp.denominator) != 1)
+                printf("/%lu", tmp.denominator);
+            printf("\n");
+        }
     }
 }
 
