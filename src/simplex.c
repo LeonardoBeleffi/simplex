@@ -497,7 +497,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     // Apri il file dati
     if ((fdata = fopen(file_name, "r")) == NULL) return 0;
 
-    // Leggi il numero di righe e colonne 
+    // Leggi il numero di righe e colonne
     fscanf(fdata, "%d %d", &(tableau->number_of_original_variables), &(tableau->number_of_costraints));
 
     int typeOfEquation[tableau->number_of_costraints];
@@ -552,7 +552,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     }
     // Chiudi il file dati
     fclose(fdata);
-  
+
     // Aggiungo le variabili artificiali
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
         tableau->type_of_variable[j] = NORMAL_VARIABLE;
