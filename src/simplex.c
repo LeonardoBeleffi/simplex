@@ -3,7 +3,9 @@
 #include <assert.h>
 
 #define MAX 10000
+//#define TOLERANCE 1e-7
 #define TOLERANCE 1e-7
+#define MAX_DECIMAL 3
 //#define TOLERANCE 0.00001
 
 
@@ -48,7 +50,12 @@ fraction fraction_from_decimal(double a) {
         is_negative = 1;
         a = -a;
     }
-    while ((result.numerator = (long) a) != a) {
+    //while ((result.numerator = a) != a) {
+    //while ((result.numerator = a) != a || result.numerator - a > TOLERANCE) { NON CREDO FUNZIONI
+    //while ((result.numerator = a) != a && result.numerator - a > TOLERANCE) {
+    unsigned long tmp = log10(a) + 1 + MAX_DECIMAL;
+    while ((result.numerator = a) != a && tmp-- > 0) {
+        //printf("%ld    %ld %lf\n", tmp, result.numerator, a);
         a *= 10;
         result.numerator = (long) a;
         result.denominator *= 10;
@@ -116,6 +123,7 @@ fraction fraction_divide(const fraction a, const fraction b) {
 
 int fraction_compare_with_double(const fraction a, double b) {
     assert(a.denominator);
+    if (!b) return !a.numerator ? 0 : a.numerator > 0 ? 1 : -1;
     double result = double_from_fraction(a) - b;
     return !result ? 0 :
             result < 0 ? -1 : 1;
@@ -415,6 +423,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
     }
 
+    printf("PRIMA\n");
     //printf("Fin qua va\n");
     //restore_zeroes(tableau);
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
@@ -436,6 +445,7 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
             assert(fraction_compare_with_double(tableau->table[current_i][0], 0) >= 0);
     }
     //restore_zeroes(tableau);
+    printf("DOPO\n");
 }
 
 void restore_zeroes(tableau_format* const tableau) {
@@ -533,6 +543,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         double cost;
         fscanf(fdata,"%lf", &cost);
         //tableau->table[0][j] = -cost;
+    //printf("OIOIOI %zu/%zu: %ld/%lu\n", j, tableau->number_of_original_variables, fraction_from_decimal(cost).numerator, fraction_from_decimal(cost).denominator);
         tableau->table[0][j] = fraction_from_decimal(-cost);
         //fscanf(fdata,"%lf", &(tableau->table[i][0]));
 
@@ -540,14 +551,17 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         // Leggi il numero di coefficienti non-zero della colonna j
         fscanf(fdata,"%d", &no);
 
+        double tmp;
         int lastVariable = 0;
         // Leggi i coefficienti non-zero della colonna j
         for (size_t k = 1; k <= no; k++) {
+    printf("WEWEWE %zu/%d %zu/%zu\n", k, no, j, tableau->number_of_original_variables);
             fscanf(fdata, "%d", &lastVariable);
             //fscanf(fdata, "%lf", &(tableau->table[lastVariable][j]));
-            double tmp;
             fscanf(fdata, "%lf", &tmp);
+            printf("last: %lf\n", tmp);
             tableau->table[lastVariable][j] = fraction_from_decimal(tmp);
+            printf("PROVA\n");
         }
     }
     // Chiudi il file dati
