@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "simplex.h"
 
 int main(int argc, char *argv[]) {
@@ -22,7 +24,7 @@ int main(int argc, char *argv[]) {
             break;
         }
         default: {
-            printf("Found optimal solution!\n");
+            printf("\nFound optimal solution!\n");
             printf("\nOptimal cost: %lf\n\nNon zero variables:\n\n", result);
             print_variables(&tableau);
         }

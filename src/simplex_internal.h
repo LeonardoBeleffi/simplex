@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#define MAX 10000
 #define TOLERANCE 1e-10
 
 #define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
@@ -39,13 +38,6 @@
     printf("\n");\
 } while (0);
 
-typedef enum {
-    NO_VARIABLE = 0,
-    NORMAL_VARIABLE,
-    SLACK_VARIABLE,
-    ARTIFICIAL_VARIABLE
-} variable_type;
-
 static result_type simplex_first_phase(tableau_format* const tableau);
 static result_type simplex_loop(tableau_format* const tableau, double* const result);
 static size_t minimum_ratio(tableau_format* const tableau, const size_t j);
@@ -53,10 +45,8 @@ static void pivot_on_all_base_variables(tableau_format* const tableau);
 static size_t has_artificial_variable_in_base(tableau_format* const tableau);
 static void exclude_all_artificial_variables_from_base(tableau_format* const tableau);
 static void pivot(tableau_format* const tableau, const size_t i, const size_t j);
-static void restore_zeroes(tableau_format* const tableau);
 static int does_not_need_first_phase(tableau_format* const tableau);
 static void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables);
-static void free_tableau(tableau_format* const tableau);
 
 #endif /* __SIMPLEX_INTERNAL_H__ */
 
