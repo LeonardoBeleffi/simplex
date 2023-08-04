@@ -286,7 +286,7 @@ static result_type simplex_first_phase(tableau_format* const tableau) {
     double result;
     simplex_loop(tableau, &result);
 
-    if (!IS_ZERO(result)) return NO_SOLUTION;
+    if (!IS_ZERO(result/2)) return NO_SOLUTION;
     exclude_all_artificial_variables_from_base(tableau);
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)
         tableau->table[0][j] = backup_objective_function[j];
