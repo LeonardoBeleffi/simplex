@@ -3,7 +3,7 @@
 #include <assert.h>
 
 #define MAX 10000
-#define TOLERANCE 1e-7
+#define TOLERANCE 1e-10
 //#define TOLERANCE 0.00001
 
 #define IS_ZERO(x) ((x) < TOLERANCE && (x) > -TOLERANCE)
@@ -26,11 +26,11 @@
 #define PRINT_ALL_TABLEAU do {\
     printf("\n");\
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++)\
-        printf("%10lf ", (double)j);\
+        printf("%10Lf ", (long double)j);\
     printf("\n\n");\
     for (size_t i = 0; i <= tableau->number_of_costraints; i++) {\
         for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {\
-            printf("%10lf %s", tableau->table[i][j], !j ? "| " : "");\
+            printf("%10Lf %s", tableau->table[i][j], !j ? "| " : "");\
         }\
         printf("\n%s", !i ? "-----------------------------------\n" : "");\
     }\
@@ -51,7 +51,7 @@ typedef enum {
 } variable_type;
 
 typedef struct {
-    double(* table)[MAX];
+    long double(* table)[MAX];
     variable_type type_of_variable[MAX];
     int is_variable_in_base[MAX];
     int number_of_original_variables, number_of_costraints,
@@ -59,10 +59,10 @@ typedef struct {
     int minimize;
 } tableau_format;
 
-result_type simplex(tableau_format* const tableau, double* const result);
+result_type simplex(tableau_format* const tableau, long double* const result);
 result_type simplex_first_phase(tableau_format* const tableau);
-result_type simplex_second_phase(tableau_format* const tableau, double* const result);
-result_type simplex_loop(tableau_format* const tableau, double* const result);
+result_type simplex_second_phase(tableau_format* const tableau, long double* const result);
+result_type simplex_loop(tableau_format* const tableau, long double* const result);
 size_t minimum_ratio(tableau_format* const tableau, const size_t j);
 void pivot_on_all_base_variables(tableau_format* const tableau);
 size_t has_artificial_variable_in_base(tableau_format* const tableau);
@@ -79,7 +79,7 @@ int create_tableau_from_input(tableau_format* const tableau);
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 int main(int argc, char *argv[]) {
     tableau_format tableau;
-    double result = 0;
+    long double result = 0;
     if (argc > 1) {
         if (!create_tableau_from_file(&tableau, argv[1])) {
             printf("An error occurred while reading the file!\n");
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         }
         default: {
             printf("Found optimal solution!\n");
-            printf("\nOptimal cost: %lf\n\nNon zero variables:\n\n", result);
+            printf("\nOptimal cost: %Lf\n\nNon zero variables:\n\n", result);
             print_variables(&tableau);
         }
     };
@@ -108,9 +108,8 @@ int main(int argc, char *argv[]) {
 }
 // REMOVEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
-result_type simplex(tableau_format* const tableau, double* const result) {
+result_type simplex(tableau_format* const tableau, long double* const result) {
     *result = 0;
-    //PRINT_ALL_TABLEAU
     if (simplex_first_phase(tableau) == NO_SOLUTION)  return NO_SOLUTION;
     printf("\n\n Fase 2 \n\n");
     result_type res = simplex_second_phase(tableau, result);
@@ -122,11 +121,11 @@ result_type simplex(tableau_format* const tableau, double* const result) {
 result_type simplex_first_phase(tableau_format* const tableau) {
     if (does_not_need_first_phase(tableau)) return NORMAL_SOLUTION;
     printf("\n\n Fase 1 \n\n");
-    double backup_objective_function[TOTAL_VARIABLES + 1];
+    long double backup_objective_function[TOTAL_VARIABLES + 1];
     //PRINT_ALL_TABLEAU
     // TODO maybe function
     for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
-//        printf("%lf ", tableau->table[0][j]);
+//        printf("%Lf ", tableau->table[0][j]);
         backup_objective_function[j] = tableau->table[0][j];
         tableau->table[0][j] =
             tableau->type_of_variable[j] == ARTIFICIAL_VARIABLE ? -1 : 0;
@@ -134,7 +133,7 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     //PRINT_ALL_TABLEAU
 
     pivot_on_all_base_variables(tableau);
-    double result;
+    long double result;
     simplex_loop(tableau, &result);
     //printf("\nTableau ottimo fase 1\n");
     //PRINT_ALL_TABLEAU
@@ -150,27 +149,33 @@ result_type simplex_first_phase(tableau_format* const tableau) {
     return NORMAL_SOLUTION;
 }
 
-result_type simplex_second_phase(tableau_format* const tableau, double* const result) {
+result_type simplex_second_phase(tableau_format* const tableau, long double* const result) {
     return simplex_loop(tableau, result);
 }
 
-result_type simplex_loop(tableau_format* const tableau, double* const result) {
+result_type simplex_loop(tableau_format* const tableau, long double* const result) {
     result_type type_of_result = NO_SOLUTION;
 
+            //PRINT_ALL_TABLEAU
     while (type_of_result == NO_SOLUTION) {
         type_of_result = NORMAL_SOLUTION;
         for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
-            if (tableau->table[0][j] <= TOLERANCE) continue;
+            if (tableau->table[0][j] <= TOLERANCE || tableau->is_variable_in_base[j]) continue;
+            //printf("row 0: %Lf\n", tableau->table[0][j]);
+            //if (tableau->table[0][j] <= 0) continue;
             //if (tableau->is_variable_in_base[j])  continue;
+            //printf("%24.14Lf\n", tableau->table[0][j]);
             size_t minimum_index = minimum_ratio(tableau, j);
             type_of_result = UNBOUNDED_SOLUTION;
 
+            //PRINT_ALL_TABLEAU
             //printf("index = %zu\n", minimum_index);
             if (!minimum_index) continue;
             type_of_result = NO_SOLUTION;
 
-            printf("Cost: %24lf.\t", tableau->table[0][0]);
+            printf("Cost: %24.14Lf.\t", tableau->table[0][0]);
             pivot(tableau, minimum_index, j);
+            //PRINT_ALL_TABLEAU
             break;
         }
         // TODO check why empty costraint gives problems
@@ -182,17 +187,57 @@ result_type simplex_loop(tableau_format* const tableau, double* const result) {
 
 size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
     size_t minimum_index = 0;
-    double minimum;
-    size_t exiting_variable_index = 0;
+    long double minimum;
 
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
         if (tableau->table[i][j] <= TOLERANCE) continue;
-        double ratio = tableau->table[i][0] / tableau->table[i][j];
-        //printf("ratio: %lf\n", ratio);
-        if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
+        long double ratio = tableau->table[i][0] / tableau->table[i][j];
+        //printf("Qui: %Lf\n", ratio);
+        //printf("ratio = %24.14Lf / %24.14lf\n", tableau->table[i][0], tableau->table[i][j]);
+        //printf("ratio: %24.14Lf\n", ratio);
+#if 1
+        if(IS_ZERO(ratio))
+            return i;
+        else if (!minimum_index || ratio < minimum + TOLERANCE) {
+            minimum = ratio;
+            minimum_index = i;
+        }
+#else
+        if (!minimum_index) {
+            minimum = ratio;
+            minimum_index = i;
+            continue;
+        }
+#endif
+#if 0
+        //printf("%24.14Lf %24.14lf\n", ratio, minimum);
+        if (IS_ZERO(ratio - minimum)) {
+            //printf("SOPRA\n");
+            //printf("Ma anche qui: \n");
+            for (size_t k = 1; k <= TOTAL_VARIABLES; k++) {
+                //if (tableau->is_variable_in_base[k] == i && (!exiting_variable_index || k < exiting_variable_index)) {
+                if (tableau->is_variable_in_base[k] == i) {
+                    minimum = ratio;
+                    minimum_index = i;
+                    break;
+                }
+            }
+        //} else if (ratio < minimum + TOLERANCE) {
+        } else if (ratio < minimum - TOLERANCE) {
+            //printf("SOTTO\n");
+            //printf("Qui: %Lf\n", ratio);
+            minimum = ratio;
+            minimum_index = i;
+        }
+#elif 0
+        //if (minimum_index == 0 || (ratio - minimum) < TOLERANCE) {
+        //if (ratio - minimum < TOLERANCE) {
+        if (ratio < minimum) {
+            //printf("Qui: %Lf\n", ratio);
             minimum = ratio;
             minimum_index = i;
         } else if (IS_ZERO(ratio - minimum)) {
+            //printf("Ma anche qui: \n");
             for (size_t j = 1; j <= TOTAL_VARIABLES; j++) {
                 if (tableau->is_variable_in_base[j] == i && (!exiting_variable_index || j < exiting_variable_index)) {
                     exiting_variable_index = j;
@@ -202,7 +247,9 @@ size_t minimum_ratio(tableau_format* const tableau, const size_t j) {
                 }
             }
         }
+#endif
     }
+    //printf("Minimum: (%zu, %zu) -> %Lf\n", minimum_index, minimum);
     return minimum_index;
 }
 
@@ -245,19 +292,34 @@ void exclude_all_artificial_variables_from_base(tableau_format* const tableau) {
 }
 
 void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
-    double coefficient = 1.0;
+    long double coefficient = 1.0;
     printf("Pivot on (%zu, %zu)\n", i, j);
 
     int found = 0;
-    for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
-        if (tableau->is_variable_in_base[current_j] == i){
+    // swap variables in base
+    //getc(stdin);
+#if 0
+    int prova1 = 0, prova2 = 0;
+    for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++)
+        if (tableau->is_variable_in_base[current_j])
+            prova1++;
+#endif
+    for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++) {
+        if (tableau->is_variable_in_base[current_j] == i) {
             tableau->is_variable_in_base[current_j] = 0;
             tableau->is_variable_in_base[j] = i;
             found = 1;
             break;
         }
     }
+#if 0
+    for (size_t current_j = 1; current_j <= TOTAL_VARIABLES; current_j++)
+        if (tableau->is_variable_in_base[current_j])
+            prova2++;
+    assert(prova1 == prova2);
+#endif
     assert(found == 1);
+
     if (!IS_ZERO(tableau->table[i][j] - 1.0)) {
         coefficient = tableau->table[i][j];
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
@@ -265,19 +327,21 @@ void pivot(tableau_format* const tableau, const size_t i, const size_t j) {
         }
     }
 
-    restore_zeroes(tableau);
+    //restore_zeroes(tableau);
     for (size_t current_i = 0; current_i <= tableau->number_of_costraints; current_i++) {
         coefficient = -tableau->table[current_i][j];
         if (IS_ZERO(coefficient) || current_i == i)  continue;
         for (size_t current_j = 0; current_j <= TOTAL_VARIABLES; current_j++) {
             tableau->table[current_i][current_j] += coefficient * tableau->table[i][current_j];
         }
-        //printf("Pivot coefficient for line %zu = %lf\n", current_i, coefficient);
-        //printf("%lf += %lf * %lf)\n", tableau->table[current_i][0], coefficient, tableau->table[i][0]);
-        if (current_i)
+        //printf("Pivot coefficient for line %zu = %Lf\n", current_i, coefficient);
+        //printf("%Lf += %lf * %lf)\n", tableau->table[current_i][0], coefficient, tableau->table[i][0]);
+        if (current_i) {
+            //printf("%Lf\n", tableau->table[current_i][0]);
             assert(tableau->table[current_i][0] >= -TOLERANCE);
+        } 
     }
-    restore_zeroes(tableau);
+    //restore_zeroes(tableau);
 }
 
 void restore_zeroes(tableau_format* const tableau) {
@@ -313,7 +377,7 @@ void add_artificial_variables(tableau_format* const tableau, int* needsArtificia
 void print_variables(tableau_format* const tableau) {
     for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
         if (tableau->is_variable_in_base[j])
-            printf("x(%zu) = %lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
+            printf("x(%zu) = %Lf\n", j, tableau->table[tableau->is_variable_in_base[j]][0]);
     }
 }
 
@@ -343,10 +407,10 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
 
     // Leggi il vettore dei termini noti
     for (size_t i = 1; i <= tableau->number_of_costraints; i++) {
-        //double cost;
-        //fscanf(fdata,"%lf", &cost);
+        //long double cost;
+        //fscanf(fdata,"%Lf", &cost);
         //tableau->table[0][j] = -cost;
-        fscanf(fdata,"%lf", &(tableau->table[i][0]));
+        fscanf(fdata,"%Lf", &(tableau->table[i][0]));
     }
 
     // Leggi il vettore dei "versi"
@@ -360,10 +424,10 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
     // Leggi la matrice dei coefficienti
     for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
         // Leggi il costo della colonna j
-        double cost;
-        fscanf(fdata,"%lf", &cost);
+        long double cost;
+        fscanf(fdata,"%Lf", &cost);
         tableau->table[0][j] = -cost;
-        //fscanf(fdata,"%lf", &(tableau->table[i][0]));
+        //fscanf(fdata,"%Lf", &(tableau->table[i][0]));
 
         int no;
         // Leggi il numero di coefficienti non-zero della colonna j
@@ -373,7 +437,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
         // Leggi i coefficienti non-zero della colonna j
         for (size_t k = 1; k <= no; k++) {
             fscanf(fdata, "%d", &lastVariable);
-            fscanf(fdata, "%lf", &(tableau->table[lastVariable][j]));
+            fscanf(fdata, "%Lf", &(tableau->table[lastVariable][j]));
         }
     }
     // Chiudi il file dati
@@ -394,8 +458,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? 1 : 0;
             }
-            //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -406,8 +470,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             }
         } else if (typeOfEquation[i - 1] == 0) {
                 needsArtificialVariables[i] = 1;
-            //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -417,8 +481,8 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             for (size_t y = 0; y <= tableau->number_of_costraints; y++) {
                 tableau->table[y][tableau->number_of_original_variables + tableau->number_of_slack_variables] = i == y ? -1 : 0;
             }
-            //if (tableau->table[i][0] > 0) {
-            if (tableau->table[i][0] > -TOLERANCE) {
+            if (tableau->table[i][0] > 0) {
+            //if (tableau->table[i][0] > -TOLERANCE) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables + tableau->number_of_slack_variables] = 0;
             } else {
@@ -429,6 +493,7 @@ int create_tableau_from_file(tableau_format* const tableau, const char* file_nam
             }
         }
     }
+    //PRINT_ALL_TABLEAU
     add_artificial_variables(tableau, needsArtificialVariables);
     return 1;
 }
@@ -460,7 +525,7 @@ int create_tableau_from_input(tableau_format* const tableau) {
         for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
             printf("Enter the coefficient of " \
                    "variable number %zu: ", j);
-            scanf("%lf", &(tableau->table[i][j]));
+            scanf("%Lf", &(tableau->table[i][j]));
         }
         i++;
 
@@ -472,11 +537,11 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\"<=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                scanf("%Lf", &(tableau->table[i][k]));
             }
             printf("Enter the well-known term for the " \
                    "\"<=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            scanf("%Lf", &(tableau->table[i][0]));
             i++;
         }
 
@@ -488,11 +553,11 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\"=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                scanf("%Lf", &(tableau->table[i][k]));
             }
             printf("Enter the well-known term for the " \
                    "\"=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            scanf("%Lf", &(tableau->table[i][0]));
             i++;
         }
 
@@ -504,11 +569,11 @@ int create_tableau_from_input(tableau_format* const tableau) {
             for (size_t k = 1; k <= tableau->number_of_original_variables; k++) {
                 printf("Enter the coefficient of variable number %zu in " \
                        "\">=\" costraint number %d: ", k, i);
-                scanf("%lf", &(tableau->table[i][k]));
+                scanf("%Lf", &(tableau->table[i][k]));
             }
             printf("Enter the well-known term for the " \
                    "\">=\" costraint number %zu: ", j + 1);
-            scanf("%lf", &(tableau->table[i][0]));
+            scanf("%Lf", &(tableau->table[i][0]));
             i++;
         }
 
@@ -518,10 +583,10 @@ int create_tableau_from_input(tableau_format* const tableau) {
         printf("%s ", tableau->minimize == 1 ? "Min" : "Max");
         for (size_t i = 0; i <= tableau->number_of_costraints; i++) {
             for (size_t j = 1; j <= tableau->number_of_original_variables; j++) {
-                printf("%lf ", tableau->table[i][j]);
+                printf("%Lf ", tableau->table[i][j]);
             }
             if (i) {
-                printf("%s %lf", i <= lessEqualCostraints ? "<=" :
+                printf("%s %Lf", i <= lessEqualCostraints ? "<=" :
                        i <= lessEqualCostraints + equalCostraints ? "=" : ">=",
                        tableau->table[i][0]);
             }
@@ -552,8 +617,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
                 tableau->table[y][tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = i == y ? 1 : 0;
             }
-            //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < TOLERANCE) {
                 // addSlackVariable(const int i)
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
@@ -567,8 +632,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
             }
         } else if (i <= lessEqualCostraints + equalCostraints) {
             needsArtificialVariables[i] = 1;
-            //if (tableau->table[i][0] < 0) {
-            if (tableau->table[i][0] < TOLERANCE) {
+            if (tableau->table[i][0] < 0) {
+            //if (tableau->table[i][0] < TOLERANCE) {
                 for (size_t j = 0; j <= TOTAL_VARIABLES; j++) {
                     tableau->table[i][j] *= -1;
                 }
@@ -579,8 +644,8 @@ int create_tableau_from_input(tableau_format* const tableau) {
                 tableau->table[y][tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = i == y ? -1 : 0;
             }
-            //if (tableau->table[i][0] > 0) {
-            if (tableau->table[i][0] > -TOLERANCE) {
+            if (tableau->table[i][0] > 0) {
+            //if (tableau->table[i][0] > -TOLERANCE) {
                 needsArtificialVariables[i] = 1;
                 tableau->is_variable_in_base[tableau->number_of_original_variables +
                     tableau->number_of_slack_variables] = 0;
