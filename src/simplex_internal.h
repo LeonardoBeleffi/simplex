@@ -54,5 +54,5 @@ static int does_not_need_first_phase(tableau_format* const tableau);
 static void add_artificial_variables(tableau_format* const tableau, int* needsArtificialVariables);
 static void free_tableau(tableau_format* const tableau);
 
-#endif __SIMPLEX_INTERNAL_H__
+#endif /* __SIMPLEX_INTERNAL_H__ */
 
