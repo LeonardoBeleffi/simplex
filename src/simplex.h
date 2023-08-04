@@ -1,6 +1,10 @@
 #ifndef __SIMPLEX_H__
 #define __SIMPLEX_H__
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
 #define MAX 10000
 #define TOLERANCE 1e-10
 
